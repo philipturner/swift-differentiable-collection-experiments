@@ -11,7 +11,7 @@ import _Differentiation
 
 public protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
 where Element: Differentiable & AdditiveArithmetic,
-      TangentVector: DifferentiableCollection, // this should be ElementTangentCollection.DifferentiableView. Currently can't try `== DifferentiableCollectionView<ElementTangentCollection>` because of a compiler crash
+      TangentVector: DifferentiableCollection, // this should be ElementTangentCollection.DifferentiableView if possible. Currently can't try `== DifferentiableCollectionView<ElementTangentCollection>` because of a compiler crash
       Element.TangentVector == TangentVector.Element,
       Index == TangentVector.Index
 {
@@ -195,190 +195,23 @@ where Element: AdditiveArithmetic {
   }
 }
 
-
-
-
-//extension Array: AdditiveArithmetic where Element: Equatable {
-//  public static var zero: Self { fatalError() }//Self(Base) }
-//
-//  public static func - (lhs: Self, rhs: Self) -> Self {
-//    fatalError()
-//  }
-//  @_disfavoredOverload
-//  public static func + (lhs: Self, rhs: Self) -> Self {
-//    fatalError()
-//  }
-//}
-
-// give Array conformance to AdditiveArithmetic.+ in the standard library, but use `@_disfavoredOverload`
-// TODO: - see if the above idea can be pulled off
-
-// the following won't work.
-//print((+ as (AdditiveArithmetic, AdditiveArithmetic) -> AdditiveArithmetic)([Int](), [Int]()))
-//
-// but, maybe if it's used inside of some generic code treating it as an AdditiveArithmetic
-
-// if I can pull this off, maybe I can avoid the `DifferentiableView` stuff
-
-//print([Int]() + [Int]())
-//
-//print("erewrewr")
-
-//print(AdditiveArie([Int]() as AdditiveArithmetic) + ([Int]() as AdditiveArithmetic))
-
-/*
- 
- protocol DiffRRCollection: Collection & Differentiable
- where Index == Int,
-       Element: Differentiable,
-       TangentVector: DiffRRCollection, // this should be Array<T.Tangent>.DifferentiableView
-       TangentVector.Element == Element.TangentVector {
-   associatedtype SelfOfElementTan: DiffRRCollection
-   where SelfOfElementTan.Element == Element.TangentVector
- }
-
- struct DifferentiableCollectionView<T: DiffRRCollection>: DiffRRCollection {
-   func index(after i: Int) -> Int {
-     fatalError()
-   }
-   
-   subscript(position: Int) -> T.Element {
-     _read {
-       fatalError()
-     }
-   }
-   
-   var startIndex: Int { fatalError() }
-   
-   var endIndex: Int { fatalError() }
-   
-   typealias SelfOfElementTan = T.SelfOfElementTan
-   
-   init() {
-     fatalError()
-   }
-   
-   typealias Element = T.Element
-   
-   var _base: T
- }
-
- extension DiffRRCollection {
-   typealias DifferentiableView = DifferentiableCollectionView<Self>
- }
-
- // MARK: - Declare conformances
-
- extension DifferentiableCollectionView: Differentiable {
-   typealias TangentVector = T.TangentVector
-   
-   mutating func move(by offset: TangentVector) {}
- }
-
- extension DifferentiableCollectionView: Equatable
- where T.Element: Equatable {
-   static func == (lhs: Self, rhs: Self) -> Bool {
-     fatalError()
-   }
- }
-
- extension DifferentiableCollectionView: AdditiveArithmetic
- where T.Element: AdditiveArithmetic {
-   static var zero: Self { fatalError() }
-   
-   static func - (lhs: Self, rhs: Self) -> Self {
-     fatalError()
-   }
-   
-   static func + (lhs: Self, rhs: Self) -> Self {
-     fatalError()
-   }
- }
-
- 
- 
- */
-
-
-
-
-
-/*
- 
- 
- //
- //  main.swift
- //  Experimentation4
- //
- //  Created by Philip Turner on 1/27/22.
- //
-
- import _Differentiation
-
- // MARK: - Declare types
-
- /*
+/// Makes `Array` differentiable as the product manifold of `Element`
+/// multiplied with itself `count` times.
+extension DifferentiableCollection {
+  // In an ideal world, `TangentVector` would be `[Element.TangentVector]`.
+  // Unfortunately, we cannot conform `Array` to `AdditiveArithmetic` for
+  // `TangentVector` because `Array` already has a static `+` method with
+  // different semantics from `AdditiveArithmetic.+`. So we use
+  // `Array.DifferentiableView` for all these associated types.
+  //typealias TangentVector = ElementTangentCollection.DifferentiableView
   
-  , // this should be Array<T.Tangent>.DifferentiableView
-  TangentVector.Element == Element.TangentVector
-  */
+  // TODO: - the `TangentVector` typealias is declared when conforming each individual collection protocol TO Differentiable. The typealias should NOT be declared here because of the compiler crash (it was in the original file). Where should the above documentation go then, if it still can't be declared here after the crash is fixed??
+  
+  public mutating func move(by offset: TangentVector) {
+    var view = DifferentiableView(self)
+    view.move(by: offset)
+    self = view.base
+  }
+}
 
- // DiffRRCollection can't conform to AdditiveArithmetic
- protocol DiffRRCollection: RangeReplaceableCollection & Differentiable & AdditiveArithmetic
- where Element: Differentiable & AdditiveArithmetic,
-   TangentVector == DifferentiableCollectionView<SelfOfElementTan>,
-       TangentVector.Element == Element.TangentVector {
- //      TangentVector: DiffCollViewProtocol,
- //      TangentVector.T == SelfOfElementTan {
- //      SelfOfElementTan.Element == Element.TangentVector {
-   associatedtype SelfOfElementTan: DiffRRCollection
- }
 
- //protocol DiffCollViewProtocol: AdditiveArithmetic {
- //  associatedtype T: DiffRRCollection & AdditiveArithmetic
- //}
-
- struct DifferentiableCollectionView<T: DiffRRCollection & AdditiveArithmetic>
- where T.Element: AdditiveArithmetic {
-   typealias Element = T.Element
-   var _base: T
- }
-
- extension DiffRRCollection {
-   typealias DifferentiableView = DifferentiableCollectionView<Self>
- }
-
- // MARK: - Declare conformances
-
- // todo: maybe make a sub-type of DiffRRCollection where TangentVector equals a DifferentiableCollectionView?
- // or conform DifferentiableCollectionView to RangeReplaceableCollection?
-
- extension DifferentiableCollectionView: Differentiable {
-   typealias TangentVector = T.TangentVector
-
-   mutating func move(by offset: TangentVector) {}
- }
-
- extension DifferentiableCollectionView: Equatable
- where T.Element: Equatable {
-   static func == (lhs: Self, rhs: Self) -> Bool {
-     fatalError()
-   }
- }
-
- extension DifferentiableCollectionView: AdditiveArithmetic
- where T.Element: AdditiveArithmetic {
-   static var zero: Self { fatalError() }
-
-   static func - (lhs: Self, rhs: Self) -> Self {
-     fatalError()
-   }
-
-   static func + (lhs: Self, rhs: Self) -> Self {
-     fatalError()
-   }
- }
-
- 
- 
- */
