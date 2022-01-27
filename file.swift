@@ -1,6 +1,5 @@
 import Swift
 
-
 public protocol DiffColParent: Collection where Element: Differentiable {
   associatedtype SelfOfElemTan: DifferentiableCollection
 }
@@ -25,7 +24,12 @@ public extension DifferentiableCollection {
 
 public protocol LetsJustConform {
   associatedtype Base: DifferentiableCollection
+  associatedtype TangentVector
   var base: Collection { get set }
+}
+
+extension LetsJustConform {
+  typealias TangentVector = Self
 }
 
 ////////
@@ -40,7 +44,7 @@ public protocol LetsJustConform {
 /////
 // I might almost be there!!!!!!!!!!!!
 
-public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable {
+public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable where Base.SelfOfElemTan.DifferentiableView == Base.SelfOfElemTan.DifferentiableView.TangentVector {
   public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
   
   // Will add conditional conformance to different collectionsby restricting
@@ -108,5 +112,5 @@ public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Diff
 }
 
 public extension DifferentiableCollection {
-  typealias DifferentiableView = DifferentiableCollectionView<Self>
+//  typealias DifferentiableView = DifferentiableCollectionView<Self>
 }
