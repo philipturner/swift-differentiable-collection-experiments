@@ -1,6 +1,5 @@
 import Swift
 
-
 public protocol DiffColParent: Collection where Element: Differentiable {
   associatedtype SelfOfElemTan: DifferentiableCollection
 }
@@ -27,23 +26,13 @@ public protocol LetsJustConform {
   associatedtype Base: DifferentiableCollection
   associatedtype TangentVector
   var base: Collection { get set }
+  var baseIndices: DefaultIndices<Base> { get set }
 }
 
 extension LetsJustConform {
   typealias TangentVector = Self
 }
 
-////////
-///////
-///
-/////
-////
-/////
-////
-////
-///
-/////
-// I did it!!!!!!!!!!!!
 
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable where Base.SelfOfElemTan.DifferentiableView == Base.SelfOfElemTan.DifferentiableView.TangentVector {
   public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
@@ -105,10 +94,11 @@ public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Diff
         Count mismatch: \(base.count) ('self') and \(offset.base.count) \
         ('direction')
         """)
-    print(Int() as Any as! Base.SelfOfElemTan.Indices)
-//    for i in (offset.base.indices as! Base.SelfOfElemTan.Indices) {
-//      base[i].move(by: offset.base[i])
-//    }
+//    print(offset.base.indices as Any)
+//    print(Int() as Any as! Base.SelfOfElemTan.Indices as! TangentVector.Base.Indices)
+    for i in (offset.baseIndices) {
+      base[i].move(by: offset.base[i])
+    }
   }
 }
 
