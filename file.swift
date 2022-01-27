@@ -1,15 +1,24 @@
 import Swift
 
-public protocol DiffColParent: Collection & Differentiable
-
-
-public protocol DifferentiableCollection: Collection & Differentiable where Element: Differentiable {
-  associatedtype DifferentiableView: Differentiable
-//  associatedtype SelfOfElementTangent: Collection & Differentiable & DifferentiableCollection
+public protocol DiffColParent: Collection & Differentiable where Element: Differentiable {
+  associatedtype SelfOfElemTan: DifferentiableCollection
 }
 
+
+public protocol DifferentiableCollection: DiffColParent where SelfOfElemTan.Element == Element.TangentVector, TangentVector == Self.SelfOfElemTan.DifferentiableView {
+  associatedtype DifferentiableView: Differentiable & DiffColViewTraits
+  //  associatedtype SelfOfElementTangent: Collection & Differentiable & DifferentiableCollection
+}
+
+
+public protocol DiffColViewTraits {
+  var base: Collection { get set }
+}
+
+
+
 public extension DifferentiableCollection {
-  typealias TangentVectorq = Self.DifferentiableView
+  
 }
 
 
@@ -37,12 +46,12 @@ where Base.Element: Differentiable {
   @usableFromInline
   @derivative(of: base)
   func _vjpBase() -> (
-    value: Base, pullback: (Base.TangentVectorq) -> TangentVector
+    value: Base, pullback: (Base.TangentVector) -> TangentVector
   ) {
     return (base, { $0 })
   }
   
-  public typealias TangentVector = Base.TangentVectorq
+  public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
   
   public mutating func move(by offset: TangentVector) {
     if offset.base.isEmpty {
@@ -58,4 +67,3 @@ where Base.Element: Differentiable {
     }
   }
 }
-
