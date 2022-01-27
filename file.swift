@@ -1,5 +1,6 @@
 import Swift
 
+
 public protocol DiffColParent: Collection where Element: Differentiable {
   associatedtype SelfOfElemTan: DifferentiableCollection
 }
@@ -42,7 +43,7 @@ extension LetsJustConform {
 ////
 ///
 /////
-// I might almost be there!!!!!!!!!!!!
+// I did it!!!!!!!!!!!!
 
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable where Base.SelfOfElemTan.DifferentiableView == Base.SelfOfElemTan.DifferentiableView.TangentVector {
   public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
