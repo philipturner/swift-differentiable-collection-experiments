@@ -9,7 +9,7 @@ import _Differentiation
 
 // MARK: - Declare DiffRRCollection
 
-protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
+public protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
 where Element: Differentiable & AdditiveArithmetic,
       TangentVector: DifferentiableCollection, // this should be ElementTangentCollection.DifferentiableView. Currently can't try `== DifferentiableCollectionView<ElementTangentCollection>` because of a compiler crash
       Element.TangentVector == TangentVector.Element,
@@ -18,34 +18,35 @@ where Element: Differentiable & AdditiveArithmetic,
   associatedtype ElementTangentCollection: DifferentiableCollection
   where ElementTangentCollection.Element == Element.TangentVector
   
+  // TODO: document that `zero` should be the empty collection
   static var zero: Self { get }
 }
 
 extension DifferentiableCollection {
-  typealias DifferentiableView = DifferentiableCollectionView<Self>
+  public typealias DifferentiableView = DifferentiableCollectionView<Self>
 }
 
 // MARK: - Declare DifferentiableView
 
 /// The view of an array as the differentiable product manifold of `Element`
 /// multiplied with itself `count` times.
-// @frozen - TODO: try this
-struct DifferentiableCollectionView<Base: DifferentiableCollection> {
-  typealias ElementTangentCollection = Base.ElementTangentCollection
+@frozen
+public struct DifferentiableCollectionView<Base: DifferentiableCollection> {
+  public typealias ElementTangentCollection = Base.ElementTangentCollection
   
   var _base: Base
 }
 
 extension DifferentiableCollectionView: DifferentiableCollection {
-  typealias Element = Base.Element
-  typealias Index = Base.Index
+  public typealias Element = Base.Element
+  public typealias Index = Base.Index
   
-  subscript(position: Index) -> Element {
+  public subscript(position: Index) -> Element {
     _read {
       if position < endIndex {
         yield base[position]
       } else {
-        yield Element.zero // why is this even allowed? And shouldn't it check for position < base.startIndex too?
+        yield Element.zero // why is this even allowed (and checked in tests)? If it is, shouldn't it check for position < base.startIndex too?
       }
     }
     set(newValue) {
@@ -54,12 +55,12 @@ extension DifferentiableCollectionView: DifferentiableCollection {
     }
   }
   
-  func index(after i: Index) -> Index {
+  public func index(after i: Index) -> Index {
     base.index(after: i)
   }
   
-  var startIndex: Index { base.startIndex }
-  var endIndex: Index { base.endIndex }
+  public var startIndex: Index { base.startIndex }
+  public var endIndex: Index { base.endIndex }
 }
 
 // MARK: - Declare conformances
@@ -88,9 +89,9 @@ extension DifferentiableCollectionView: Differentiable {
   }
   
   /// Creates a differentiable view of the given array.
-  init(_ base: Base) { self._base = base } // can we remove `self`?
+  public init(_ base: Base) { self._base = base } // can we remove `self`?
   
-  @usableFromInline
+  @usableFromInline // why can't this be @inlinable (and other instances of @usableFromInline in the _Differentiation module)?
   @derivative(of: init(_:))
   static func _vjpInit(_ base: Base) -> (
     value: Self, pullback: (TangentVector) -> TangentVector
@@ -106,9 +107,9 @@ extension DifferentiableCollectionView: Differentiable {
     return (Self(base), { $0 })
   }
   
-  typealias TangentVector = Base.TangentVector
+  public typealias TangentVector = Base.TangentVector
   
-  mutating func move(by offset: TangentVector) {
+  public mutating func move(by offset: TangentVector) {
     if offset.isEmpty {
       return
     }
@@ -126,16 +127,40 @@ extension DifferentiableCollectionView: Differentiable {
 
 extension DifferentiableCollectionView: Equatable
 where Element: Equatable {
-  static func == (lhs: Self, rhs: Self) -> Bool {
+  public static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.base == rhs.base
   }
 }
 
+extension DifferentiableCollectionView: ExpressibleByArrayLiteral
+where Base: RangeReplaceableCollection { // should I add the ExpresibleByArrayLiteral requirement to Base as well?
+  public init(arrayLiteral elements: Element...) {
+    self.init(Base(elements))
+  }
+}
+
+// is it possible to implement ExpressibleByDictionaryLiteral? I tried and got nowhere. If it's not possible, make a TODO for if a future language future enables it.
+
+// why is there only conformance for CustomStringConvertible and not CustomDebugStringConvertible or CustomReflectable?
+
+extension DifferentiableCollectionView: CustomStringConvertible
+where Base: CustomStringConvertible {
+  public var description: String {
+    return base.description // do I have to put this on a new line?
+  }
+}
+
+/// Makes `Array.DifferentiableView` additive as the product space.
+///
+/// Note that `Array.DifferentiableView([])` is the zero in the product spaces
+/// of all counts.
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
-  static var zero: Self { Self(Base.zero) }
+  public static var zero: Self {
+    return Self(Base.zero) // do I have to put this on a new line?
+  }
   
-  static func + (lhs: Self, rhs: Self) -> Self {
+  public static func + (lhs: Self, rhs: Self) -> Self {
     if lhs.base.count == 0 {
       return rhs
     }
@@ -152,23 +177,26 @@ where Element: AdditiveArithmetic {
     return sum
   }
   
-  static func - (lhs: Self, rhs: Self) -> Self {
-    if lhs.count == 0 {
+  public static func - (lhs: Self, rhs: Self) -> Self {
+    if lhs.base.count == 0 {
       return rhs
     }
-    if rhs.count == 0 {
+    if rhs.base.count == 0 {
       return lhs
     }
     precondition(
-      lhs.count == rhs.count,
-      "Count mismatch: \(lhs.count) and \(rhs.count)")
+      lhs.base.count == rhs.base.count,
+      "Count mismatch: \(lhs.base.count) and \(rhs.base.count)")
     var difference = lhs
-    for i in lhs.indices {
+    for i in lhs.base.indices {
       difference[i] -= rhs[i]
     }
     return difference
   }
 }
+
+
+
 
 //extension Array: AdditiveArithmetic where Element: Equatable {
 //  public static var zero: Self { fatalError() }//Self(Base) }
