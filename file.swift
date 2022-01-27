@@ -1,41 +1,35 @@
 import Swift
 
-public protocol DiffColParent: Collection & Differentiable where Element: Differentiable {
+public protocol DiffColParent: Collection where Element: Differentiable {
   associatedtype SelfOfElemTan: DifferentiableCollection
 }
 
 
-public protocol DifferentiableCollection: DiffColParent where SelfOfElemTan.Element == Element.TangentVector, TangentVector == Self.SelfOfElemTan.DifferentiableView {
-  associatedtype DifferentiableView: Differentiable & DiffColViewTraits
+public protocol DiffColParent2: DiffColParent where SelfOfElemTan.Element == Element.TangentVector {
   //  associatedtype SelfOfElementTangent: Collection & Differentiable & DifferentiableCollection
 }
 
-
-public protocol DiffColViewTraits {
-  var base: Collection { get set }
+public protocol DifferentiableCollection: DiffColParent2 {
+  associatedtype DifferentiableView: Differentiable
 }
 
-
+//public protocol DiffColViewTraits { // just need to be able to constrain this so that the base's type is the same as the DifferentiableView's container's type!
+//  associatedtype Base: Collection
+//  var base: Base { get set }
+//}
 
 public extension DifferentiableCollection {
-  
+  typealias TangentVector = Self.SelfOfElemTan.DifferentiableView
 }
 
 
 
 
-public struct DifferentiableCollectionView<Base: DifferentiableCollection> {
+public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable {
   // Will add conditional conformance to different collectionsby restricting
   // `Base`
   @noDerivative var _base: Base
-}
-
-public extension DifferentiableCollection {
-  typealias DifferentiableView = DifferentiableCollectionView<Self>
-}
-
-extension DifferentiableCollectionView: Differentiable
-where Base.Element: Differentiable {
+  
   /// The viewed collection.
   public var base: Base {
     get { _base }
@@ -49,6 +43,33 @@ where Base.Element: Differentiable {
     value: Base, pullback: (Base.TangentVector) -> TangentVector
   ) {
     return (base, { $0 })
+  }
+  
+  @usableFromInline
+  @derivative(of: base)
+  func _jvpBase() -> (
+    value: Base, differential: (Base.TangentVector) -> TangentVector
+  ) {
+    return (base, { $0 })
+  }
+  
+  /// Creates a differentiable view of the given array.
+  public init(_ base: Base) { self._base = base }
+
+  @usableFromInline
+  @derivative(of: init(_:))
+  static func _vjpInit(_ base: Base) -> (
+    value: Self, pullback: (TangentVector) -> TangentVector
+  ) {
+    return (Self(base), { $0 })
+  }
+
+  @usableFromInline
+  @derivative(of: init(_:))
+  static func _jvpInit(_ base: Base) -> (
+    value: Self, differential: (TangentVector) -> TangentVector
+  ) {
+    return (Self(base), { $0 })
   }
   
   public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
@@ -66,4 +87,8 @@ where Base.Element: Differentiable {
       base[i].move(by: offset.base[i])
     }
   }
+}
+
+public extension DifferentiableCollection {
+  typealias DifferentiableView = DifferentiableCollectionView<Self>
 }
