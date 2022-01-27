@@ -1,5 +1,6 @@
 import Swift
 
+
 public protocol DiffColParent: Collection where Element: Differentiable {
   associatedtype SelfOfElemTan: DifferentiableCollection
 }
@@ -10,7 +11,7 @@ public protocol DiffColParent2: DiffColParent where SelfOfElemTan.Element == Ele
 }
 
 public protocol DifferentiableCollection: DiffColParent2 {
-  associatedtype DifferentiableView: Differentiable
+  associatedtype DifferentiableView: Differentiable & LetsJustConform & AdditiveArithmetic
 }
 
 //public protocol DiffColViewTraits { // just need to be able to constrain this so that the base's type is the same as the DifferentiableView's container's type!
@@ -22,10 +23,26 @@ public extension DifferentiableCollection {
   typealias TangentVector = Self.SelfOfElemTan.DifferentiableView
 }
 
+public protocol LetsJustConform {
+  associatedtype Base: DifferentiableCollection
+  var base: Collection { get set }
+}
 
-
+////////
+///////
+///
+/////
+////
+/////
+////
+////
+///
+/////
+// I might almost be there!!!!!!!!!!!!
 
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable {
+  public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
+  
   // Will add conditional conformance to different collectionsby restricting
   // `Base`
   @noDerivative var _base: Base
@@ -36,43 +53,43 @@ public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Diff
     _modify { yield &_base }
   }
   
-  // try changing to @inlinable
-  @usableFromInline
-  @derivative(of: base)
-  func _vjpBase() -> (
-    value: Base, pullback: (Base.TangentVector) -> TangentVector
-  ) {
-    return (base, { $0 })
-  }
+//  // try changing to @inlinable
+//  @usableFromInline
+//  @derivative(of: base)
+//  func _vjpBase() -> (
+//    value: Base, pullback: (Base.TangentVector) -> TangentVector
+//  ) {
+//    return (base, { $0 })
+//  }
+//
+//  @usableFromInline
+//  @derivative(of: base)
+//  func _jvpBase() -> (
+//    value: Base, differential: (Base.TangentVector) -> TangentVector
+//  ) {
+//    return (base, { $0 })
+//  }
+//
+//  /// Creates a differentiable view of the given array.
+//  public init(_ base: Base) { self._base = base }
+//
+//  @usableFromInline
+//  @derivative(of: init(_:))
+//  static func _vjpInit(_ base: Base) -> (
+//    value: Self, pullback: (TangentVector) -> TangentVector
+//  ) {
+//    return (Self(base), { $0 })
+//  }
+//
+//  @usableFromInline
+//  @derivative(of: init(_:))
+//  static func _jvpInit(_ base: Base) -> (
+//    value: Self, differential: (TangentVector) -> TangentVector
+//  ) {
+//    return (Self(base), { $0 })
+//  }
   
-  @usableFromInline
-  @derivative(of: base)
-  func _jvpBase() -> (
-    value: Base, differential: (Base.TangentVector) -> TangentVector
-  ) {
-    return (base, { $0 })
-  }
-  
-  /// Creates a differentiable view of the given array.
-  public init(_ base: Base) { self._base = base }
-
-  @usableFromInline
-  @derivative(of: init(_:))
-  static func _vjpInit(_ base: Base) -> (
-    value: Self, pullback: (TangentVector) -> TangentVector
-  ) {
-    return (Self(base), { $0 })
-  }
-
-  @usableFromInline
-  @derivative(of: init(_:))
-  static func _jvpInit(_ base: Base) -> (
-    value: Self, differential: (TangentVector) -> TangentVector
-  ) {
-    return (Self(base), { $0 })
-  }
-  
-  public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
+//  public typealias TangentVector =
   
   public mutating func move(by offset: TangentVector) {
     if offset.base.isEmpty {
@@ -83,9 +100,10 @@ public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Diff
         Count mismatch: \(base.count) ('self') and \(offset.base.count) \
         ('direction')
         """)
-    for i in offset.base.indices {
-      base[i].move(by: offset.base[i])
-    }
+    print(Int() as Any as! Base.SelfOfElemTan.Indices)
+//    for i in (offset.base.indices as! Base.SelfOfElemTan.Indices) {
+//      base[i].move(by: offset.base[i])
+//    }
   }
 }
 
