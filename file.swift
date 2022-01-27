@@ -1,107 +1,325 @@
-import Swift
+//
+//  main.swift
+//  Experimentation4
+//
+//  Created by Philip Turner on 1/27/22.
+//
 
-public protocol DiffColParent: Collection where Element: Differentiable {
-  associatedtype SelfOfElemTan: DifferentiableCollection
+import _Differentiation
+
+// MARK: - Declare DiffRRCollection
+
+protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
+where Element: Differentiable & AdditiveArithmetic,
+      TangentVector: DifferentiableCollection, // this should be ElementTangentCollection.DifferentiableView. Currently can't try `== DifferentiableCollectionView<ElementTangentCollection>` because of a compiler crash
+      Element.TangentVector == TangentVector.Element,
+      Index == TangentVector.Index {
+  associatedtype ElementTangentCollection: DifferentiableCollection
+  where ElementTangentCollection.Element == Element.TangentVector
 }
 
-
-public protocol DiffColParent2: DiffColParent where SelfOfElemTan.Element == Element.TangentVector {
-  //  associatedtype SelfOfElementTangent: Collection & Differentiable & DifferentiableCollection
+extension DifferentiableCollection {
+  typealias DifferentiableView = DifferentiableCollectionView<Self>
 }
 
-public protocol DifferentiableCollection: DiffColParent2 {
-  associatedtype DifferentiableView: Differentiable & LetsJustConform & AdditiveArithmetic
-}
+// MARK: - Declare DifferentiableView
 
-//public protocol DiffColViewTraits { // just need to be able to constrain this so that the base's type is the same as the DifferentiableView's container's type!
-//  associatedtype Base: Collection
-//  var base: Base { get set }
-//}
-
-public extension DifferentiableCollection {
-  typealias TangentVector = Self.SelfOfElemTan.DifferentiableView
-}
-
-public protocol LetsJustConform {
-  associatedtype Base: DifferentiableCollection
-  associatedtype TangentVector
-  var base: Collection { get set }
-  var baseIndices: DefaultIndices<Base> { get set }
-}
-
-extension LetsJustConform {
-  typealias TangentVector = Self
-}
-
-
-public struct DifferentiableCollectionView<Base: DifferentiableCollection>: Differentiable where Base.SelfOfElemTan.DifferentiableView == Base.SelfOfElemTan.DifferentiableView.TangentVector {
-  public typealias TangentVector = Base.SelfOfElemTan.DifferentiableView
+/// The view of an array as the differentiable product manifold of `Element`
+/// multiplied with itself `count` times.
+// @frozen - TODO: try this
+struct DifferentiableCollectionView<Base: DifferentiableCollection> {
+  typealias ElementTangentCollection = Base.ElementTangentCollection
   
-  // Will add conditional conformance to different collectionsby restricting
-  // `Base`
-  @noDerivative var _base: Base
+  var _base: Base
+}
+
+extension DifferentiableCollectionView: DifferentiableCollection {
+  typealias Element = Base.Element
+  typealias Index = Base.Index
   
-  /// The viewed collection.
-  public var base: Base {
+  subscript(position: Index) -> Element {
+    _read {
+      yield base[position]
+    }
+    set(newValue) {
+      base[position] = newValue
+    }
+  }
+  
+  func index(after i: Index) -> Index {
+    base.index(after: i)
+  }
+  
+  var startIndex: Index { base.startIndex }
+  var endIndex: Index { base.endIndex }
+}
+
+// MARK: - Declare conformances
+
+extension DifferentiableCollectionView: Differentiable {
+  /// The viewed array.
+  public var base: Base { // is making a wrapper really necessary?
     get { _base }
     _modify { yield &_base }
   }
   
-//  // try changing to @inlinable
-//  @usableFromInline
-//  @derivative(of: base)
-//  func _vjpBase() -> (
-//    value: Base, pullback: (Base.TangentVector) -> TangentVector
-//  ) {
-//    return (base, { $0 })
-//  }
-//
-//  @usableFromInline
-//  @derivative(of: base)
-//  func _jvpBase() -> (
-//    value: Base, differential: (Base.TangentVector) -> TangentVector
-//  ) {
-//    return (base, { $0 })
-//  }
-//
-//  /// Creates a differentiable view of the given array.
-//  public init(_ base: Base) { self._base = base }
-//
-//  @usableFromInline
-//  @derivative(of: init(_:))
-//  static func _vjpInit(_ base: Base) -> (
-//    value: Self, pullback: (TangentVector) -> TangentVector
-//  ) {
-//    return (Self(base), { $0 })
-//  }
-//
-//  @usableFromInline
-//  @derivative(of: init(_:))
-//  static func _jvpInit(_ base: Base) -> (
-//    value: Self, differential: (TangentVector) -> TangentVector
-//  ) {
-//    return (Self(base), { $0 })
-//  }
+  @usableFromInline
+  @derivative(of: base)
+  func _vjpBase() -> (
+    value: Base, pullback: (Base.TangentVector) -> TangentVector // is `Base.` really necessary? if so, shouldn't it be `(TangentVector) -> Base.TangentVector`?
+  ) {
+    return (base, { $0 })
+  }
   
-//  public typealias TangentVector =
+  @usableFromInline
+  @derivative(of: base)
+  func _jvpBase() -> (
+    value: Base, differential: (Base.TangentVector) -> TangentVector // is `Base.` really necessary?
+  ) {
+    return (base, { $0 })
+  }
   
-  public mutating func move(by offset: TangentVector) {
-    if offset.base.isEmpty {
+  /// Creates a differentiable view of the given array.
+  init(_ base: Base) { self._base = base } // can we remove `self`?
+  
+  @usableFromInline
+  @derivative(of: init(_:))
+  static func _vjpInit(_ base: Base) -> (
+    value: Self, pullback: (TangentVector) -> TangentVector
+  ) {
+    return (Self(base), { $0 })
+  }
+  
+  @usableFromInline
+  @derivative(of: init(_:))
+  static func _jvpInit(_ base: Base) -> (
+    value: Self, differential: (TangentVector) -> TangentVector
+  ) {
+    return (Self(base), { $0 })
+  }
+  
+  typealias TangentVector = Base.TangentVector
+  
+  mutating func move(by offset: TangentVector) {
+    if offset.isEmpty {
       return
     }
+    
     precondition(
-      base.count == offset.base.count, """
-        Count mismatch: \(base.count) ('self') and \(offset.base.count) \
+      base.count == offset.count, """
+        Count mismatch: \(base.count) ('self') and \(offset.count) \
         ('direction')
         """)
-//    print(offset.base.indices as Any)
-//    print(Int() as Any as! Base.SelfOfElemTan.Indices as! TangentVector.Base.Indices)
-    for i in (offset.baseIndices) {
-      base[i].move(by: offset.base[i])
+    
+    for i in offset.indices {
+      base[i].move(by: offset[i])
     }
+    
+    fatalError()
   }
 }
 
-public extension DifferentiableCollection {
-//  typealias DifferentiableView = DifferentiableCollectionView<Self>
+extension DifferentiableCollectionView: Equatable
+where Element: Equatable {
+  static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.base == rhs.base
+  }
 }
+
+extension DifferentiableCollectionView: AdditiveArithmetic
+where Element: AdditiveArithmetic {
+  static var zero: Self { fatalError() }//Self(Base) }
+  
+  static func - (lhs: Self, rhs: Self) -> Self {
+    fatalError()
+  }
+  
+  static func + (lhs: Self, rhs: Self) -> Self {
+    fatalError()
+  }
+}
+
+extension Array: AdditiveArithmetic where Element: Equatable {
+  public static var zero: Self { fatalError() }//Self(Base) }
+  
+  public static func - (lhs: Self, rhs: Self) -> Self {
+    fatalError()
+  }
+  @_disfavoredOverload
+  public static func + (lhs: Self, rhs: Self) -> Self {
+    fatalError()
+  }
+}
+
+// give Array conformance to AdditiveArithmetic.+ in the standard library, but use `@_disfavoredOverload`
+// TODO: - see if the above idea can be pulled off
+
+// the following won't work.
+//print((+ as (AdditiveArithmetic, AdditiveArithmetic) -> AdditiveArithmetic)([Int](), [Int]()))
+//
+// but, maybe if it's used inside of some generic code treating it as an AdditiveArithmetic
+
+// if I can pull this off, maybe I can avoid the `DifferentiableView` stuff
+
+print([Int]() + [Int]())
+
+print("erewrewr")
+
+//print(AdditiveArie([Int]() as AdditiveArithmetic) + ([Int]() as AdditiveArithmetic))
+
+/*
+ 
+ protocol DiffRRCollection: Collection & Differentiable
+ where Index == Int,
+       Element: Differentiable,
+       TangentVector: DiffRRCollection, // this should be Array<T.Tangent>.DifferentiableView
+       TangentVector.Element == Element.TangentVector {
+   associatedtype SelfOfElementTan: DiffRRCollection
+   where SelfOfElementTan.Element == Element.TangentVector
+ }
+
+ struct DifferentiableCollectionView<T: DiffRRCollection>: DiffRRCollection {
+   func index(after i: Int) -> Int {
+     fatalError()
+   }
+   
+   subscript(position: Int) -> T.Element {
+     _read {
+       fatalError()
+     }
+   }
+   
+   var startIndex: Int { fatalError() }
+   
+   var endIndex: Int { fatalError() }
+   
+   typealias SelfOfElementTan = T.SelfOfElementTan
+   
+   init() {
+     fatalError()
+   }
+   
+   typealias Element = T.Element
+   
+   var _base: T
+ }
+
+ extension DiffRRCollection {
+   typealias DifferentiableView = DifferentiableCollectionView<Self>
+ }
+
+ // MARK: - Declare conformances
+
+ extension DifferentiableCollectionView: Differentiable {
+   typealias TangentVector = T.TangentVector
+   
+   mutating func move(by offset: TangentVector) {}
+ }
+
+ extension DifferentiableCollectionView: Equatable
+ where T.Element: Equatable {
+   static func == (lhs: Self, rhs: Self) -> Bool {
+     fatalError()
+   }
+ }
+
+ extension DifferentiableCollectionView: AdditiveArithmetic
+ where T.Element: AdditiveArithmetic {
+   static var zero: Self { fatalError() }
+   
+   static func - (lhs: Self, rhs: Self) -> Self {
+     fatalError()
+   }
+   
+   static func + (lhs: Self, rhs: Self) -> Self {
+     fatalError()
+   }
+ }
+
+ 
+ 
+ */
+
+
+
+
+
+/*
+ 
+ 
+ //
+ //  main.swift
+ //  Experimentation4
+ //
+ //  Created by Philip Turner on 1/27/22.
+ //
+
+ import _Differentiation
+
+ // MARK: - Declare types
+
+ /*
+  
+  , // this should be Array<T.Tangent>.DifferentiableView
+  TangentVector.Element == Element.TangentVector
+  */
+
+ // DiffRRCollection can't conform to AdditiveArithmetic
+ protocol DiffRRCollection: RangeReplaceableCollection & Differentiable & AdditiveArithmetic
+ where Element: Differentiable & AdditiveArithmetic,
+   TangentVector == DifferentiableCollectionView<SelfOfElementTan>,
+       TangentVector.Element == Element.TangentVector {
+ //      TangentVector: DiffCollViewProtocol,
+ //      TangentVector.T == SelfOfElementTan {
+ //      SelfOfElementTan.Element == Element.TangentVector {
+   associatedtype SelfOfElementTan: DiffRRCollection
+ }
+
+ //protocol DiffCollViewProtocol: AdditiveArithmetic {
+ //  associatedtype T: DiffRRCollection & AdditiveArithmetic
+ //}
+
+ struct DifferentiableCollectionView<T: DiffRRCollection & AdditiveArithmetic>
+ where T.Element: AdditiveArithmetic {
+   typealias Element = T.Element
+   var _base: T
+ }
+
+ extension DiffRRCollection {
+   typealias DifferentiableView = DifferentiableCollectionView<Self>
+ }
+
+ // MARK: - Declare conformances
+
+ // todo: maybe make a sub-type of DiffRRCollection where TangentVector equals a DifferentiableCollectionView?
+ // or conform DifferentiableCollectionView to RangeReplaceableCollection?
+
+ extension DifferentiableCollectionView: Differentiable {
+   typealias TangentVector = T.TangentVector
+
+   mutating func move(by offset: TangentVector) {}
+ }
+
+ extension DifferentiableCollectionView: Equatable
+ where T.Element: Equatable {
+   static func == (lhs: Self, rhs: Self) -> Bool {
+     fatalError()
+   }
+ }
+
+ extension DifferentiableCollectionView: AdditiveArithmetic
+ where T.Element: AdditiveArithmetic {
+   static var zero: Self { fatalError() }
+
+   static func - (lhs: Self, rhs: Self) -> Self {
+     fatalError()
+   }
+
+   static func + (lhs: Self, rhs: Self) -> Self {
+     fatalError()
+   }
+ }
+
+ 
+ 
+ */
