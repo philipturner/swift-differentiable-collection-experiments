@@ -13,9 +13,12 @@ protocol DifferentiableCollection: MutableCollection & Differentiable & Equatabl
 where Element: Differentiable & AdditiveArithmetic,
       TangentVector: DifferentiableCollection, // this should be ElementTangentCollection.DifferentiableView. Currently can't try `== DifferentiableCollectionView<ElementTangentCollection>` because of a compiler crash
       Element.TangentVector == TangentVector.Element,
-      Index == TangentVector.Index {
+      Index == TangentVector.Index
+{
   associatedtype ElementTangentCollection: DifferentiableCollection
   where ElementTangentCollection.Element == Element.TangentVector
+  
+  static var zero: Self { get }
 }
 
 extension DifferentiableCollection {
@@ -39,9 +42,14 @@ extension DifferentiableCollectionView: DifferentiableCollection {
   
   subscript(position: Index) -> Element {
     _read {
-      yield base[position]
+      if position < endIndex {
+        yield base[position]
+      } else {
+        yield Element.zero // why is this even allowed? And shouldn't it check for position < base.startIndex too?
+      }
     }
     set(newValue) {
+      // if the above invalid subscript access is to be permitted, shouldn't some bounds checking happen here as well?
       base[position] = newValue
     }
   }
@@ -58,7 +66,7 @@ extension DifferentiableCollectionView: DifferentiableCollection {
 
 extension DifferentiableCollectionView: Differentiable {
   /// The viewed array.
-  public var base: Base { // is making a wrapper really necessary?
+  public var base: Base {
     get { _base }
     _modify { yield &_base }
   }
@@ -104,7 +112,6 @@ extension DifferentiableCollectionView: Differentiable {
     if offset.isEmpty {
       return
     }
-    
     precondition(
       base.count == offset.count, """
         Count mismatch: \(base.count) ('self') and \(offset.count) \
@@ -114,8 +121,6 @@ extension DifferentiableCollectionView: Differentiable {
     for i in offset.indices {
       base[i].move(by: offset[i])
     }
-    
-    fatalError()
   }
 }
 
@@ -128,28 +133,54 @@ where Element: Equatable {
 
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
-  static var zero: Self { fatalError() }//Self(Base) }
-  
-  static func - (lhs: Self, rhs: Self) -> Self {
-    fatalError()
-  }
+  static var zero: Self { Self(Base.zero) }
   
   static func + (lhs: Self, rhs: Self) -> Self {
-    fatalError()
+    if lhs.base.count == 0 {
+      return rhs
+    }
+    if rhs.base.count == 0 {
+      return lhs
+    }
+    precondition(
+      lhs.base.count == rhs.base.count,
+      "Count mismatch: \(lhs.base.count) and \(rhs.base.count)")
+    var sum = lhs
+    for i in lhs.base.indices {
+      sum[i] += rhs[i]
+    }
+    return sum
+  }
+  
+  static func - (lhs: Self, rhs: Self) -> Self {
+    if lhs.count == 0 {
+      return rhs
+    }
+    if rhs.count == 0 {
+      return lhs
+    }
+    precondition(
+      lhs.count == rhs.count,
+      "Count mismatch: \(lhs.count) and \(rhs.count)")
+    var difference = lhs
+    for i in lhs.indices {
+      difference[i] -= rhs[i]
+    }
+    return difference
   }
 }
 
-extension Array: AdditiveArithmetic where Element: Equatable {
-  public static var zero: Self { fatalError() }//Self(Base) }
-  
-  public static func - (lhs: Self, rhs: Self) -> Self {
-    fatalError()
-  }
-  @_disfavoredOverload
-  public static func + (lhs: Self, rhs: Self) -> Self {
-    fatalError()
-  }
-}
+//extension Array: AdditiveArithmetic where Element: Equatable {
+//  public static var zero: Self { fatalError() }//Self(Base) }
+//
+//  public static func - (lhs: Self, rhs: Self) -> Self {
+//    fatalError()
+//  }
+//  @_disfavoredOverload
+//  public static func + (lhs: Self, rhs: Self) -> Self {
+//    fatalError()
+//  }
+//}
 
 // give Array conformance to AdditiveArithmetic.+ in the standard library, but use `@_disfavoredOverload`
 // TODO: - see if the above idea can be pulled off
@@ -161,9 +192,9 @@ extension Array: AdditiveArithmetic where Element: Equatable {
 
 // if I can pull this off, maybe I can avoid the `DifferentiableView` stuff
 
-print([Int]() + [Int]())
-
-print("erewrewr")
+//print([Int]() + [Int]())
+//
+//print("erewrewr")
 
 //print(AdditiveArie([Int]() as AdditiveArithmetic) + ([Int]() as AdditiveArithmetic))
 
