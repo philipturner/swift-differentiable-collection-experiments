@@ -20,6 +20,8 @@ where Element: Differentiable & AdditiveArithmetic,
   
   // TODO: document that `zero` should be the empty collection
   static var zero: Self { get }
+  
+  subscript(position: Index) -> Element { get set }
 }
 
 extension DifferentiableCollection {
@@ -146,7 +148,7 @@ where Base: RangeReplaceableCollection { // should I add the ExpresibleByArrayLi
 extension DifferentiableCollectionView: CustomStringConvertible
 where Base: CustomStringConvertible {
   public var description: String {
-    return base.description // do I have to put this on a new line?
+    return base.description
   }
 }
 
@@ -157,7 +159,7 @@ where Base: CustomStringConvertible {
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
   public static var zero: Self {
-    return Self(Base.zero) // do I have to put this on a new line?
+    return Self(Base.zero) // do I have to put this on a new line? If not, why is DifferentiableView.init a one-liner?
   }
   
   public static func + (lhs: Self, rhs: Self) -> Self {
@@ -214,4 +216,56 @@ extension DifferentiableCollection {
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Derivatives
+//===----------------------------------------------------------------------===//
 
+extension DifferentiableCollection
+where ElementTangentCollection: RangeReplaceableCollection,
+      ElementTangentCollection.Index == Index {
+  subscript(position: Index) -> Element {
+    get {
+      fatalError("\(Self.self) must override the default implementation of subscript(position:) when conforming to `DifferentiableCollection`.")
+    }
+    _modify {
+      fatalError("\(Self.self) must override the default implementation of subscript(position:) when conforming to `DifferentiableCollection`.")
+    }
+  }
+  
+  @usableFromInline
+  @derivative(of: subscript)
+  func _vjpSubscript(index: Index) -> (
+    value: Element, pullback: (Element.TangentVector) -> TangentVector
+  ) {
+    func pullback(_ v: Element.TangentVector) -> TangentVector {
+      var dSelf = ElementTangentCollection(
+        repeating: .zero,
+        count: count
+      )
+      dSelf[index] = v
+      return ElementTangentCollection.DifferentiableView(dSelf) as! Self.TangentVector
+    }
+    return (self[index], pullback)
+  }
+  
+  @usableFromInline
+  @derivative(of: subscript)
+  func _jvpSubscript(index: Index) -> (
+    value: Element, differential: (TangentVector) -> Element.TangentVector
+  ) {
+    func differential(_ v: TangentVector) -> Element.TangentVector {
+      return v[index]
+    }
+    fatalError()
+  }
+}
+
+//extension RangeReplaceableCollection where Element: Differentiable, Self: Differentiable {
+//  @usableFromInline
+//  @derivative(of: subscript)
+//  func _vjpSubscript(index: Index) -> (
+//    value: Element, pullback: (Element.TangentVector) -> TangentVector
+//  ) {
+//    fatalError()
+//  }
+//}
