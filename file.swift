@@ -322,7 +322,8 @@ where
   // signature by calling the existing function with swapped parameters. But,
   // that might make it complicated to conform to the protocol or open
   // opportunities to misuse it. This idea should be discussed before being
-  // decided upon.
+  // decided upon, but definitely chosen by time for acceptance into release
+  // toolchains.
   
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
