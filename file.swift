@@ -321,9 +321,9 @@ where
   // Alternatively, it would be possible to overload the alternative generic
   // signature by calling the existing function with swapped parameters. But,
   // that might make it complicated to conform to the protocol or open
-  // opportunities to misuse it. This idea should be discussed before being
-  // decided upon, but definitely chosen by time for acceptance into release
-  // toolchains.
+  // opportunities to misuse it (i.e. just overload one of the two or make them
+  // have different behavior). Maybe it's okay since that is technically
+  // already possible with RangeReplaceableCollection.
   
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
