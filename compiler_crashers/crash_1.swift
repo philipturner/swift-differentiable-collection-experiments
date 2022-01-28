@@ -11,6 +11,41 @@ extension DifferentiableCollection {
 struct DifferentiableCollectionView<Base: DifferentiableCollection> {}
 
 /*
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:7: error: cannot find type 'INVALID_1' in scope
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+      ^~~~~~~~~
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:1: error: circular reference
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:17:8: note: through reference here
+struct DifferentiableCollectionView<Base: DifferentiableCollection> {}
+       ^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:20: note: while resolving type 'DifferentiableCollectionView<ElementTangentCollection>'
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+                   ^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:1: error: circular reference
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:17:8: note: through reference here
+struct DifferentiableCollectionView<Base: DifferentiableCollection> {}
+       ^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:20: note: while resolving type 'DifferentiableCollectionView<ElementTangentCollection>'
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+                   ^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:1: error: circular reference
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:17:8: note: through reference here
+struct DifferentiableCollectionView<Base: DifferentiableCollection> {}
+       ^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:8:20: note: while resolving type 'DifferentiableCollectionView<ElementTangentCollection>'
+where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
+                   ^
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:10:47: error: cannot find type 'INVALID_3' in scope
+  where ElementTangentCollection.INVALID_2 == INVALID_3
+                                              ^~~~~~~~~
+Re-entrant construction of requirement machine for <τ_0_0 where τ_0_0 : DifferentiableCollection>
+
 1.	Apple Swift version 5.6-dev (LLVM 7b20e61dd04138a, Swift 9438cf6b2e83c5f)
 2.	Compiling with the current language version
 3.	While evaluating request TypeCheckSourceFileRequest(source_file "/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift")
