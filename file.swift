@@ -522,3 +522,140 @@ where
     return ((), { $0 += $1 })
   }
 }
+
+// Might have to comment this out for the time being because of the compiler
+// crash. Thus, we can't merge it because it would remove functionality from
+// Array (a workaround is to copy and paste the old code for Array).
+extension DifferentiableCollection
+where
+  Self: RangeReplaceableCollection,
+  ElementTangentCollection: RangeReplaceableCollection,
+  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>
+{
+  @_disfavoredOverload
+  public init(repeating: Element, count: Int) {
+    fatalError("""
+      \(Self.self) must override the default implementation of \
+      `init(repeating:count)` when conforming to `DifferentiableCollection`.
+      """)
+  }
+  
+  @usableFromInline
+  @derivative(of: init(repeating:count:))
+  static func _vjpInit(repeating repeatedValue: Element, count: Int) -> (
+    value: Self, pullback: (TangentVector) -> Element.TangentVector
+  ) {
+    return (
+      value: Self(repeating: repeatedValue, count: count),
+      pullback: { v in
+        v.reduce(.zero, +)
+      }
+    )
+  }
+  
+  @usableFromInline
+  @derivative(of: init(repeating:count:))
+  static func _jvpInit(repeating repeatedValue: Element, count: Int) -> (
+    value: Self, differential: (Element.TangentVector) -> TangentVector
+  ) {
+    (
+      value: Self(repeating: repeatedValue, count: count),
+      differential: { v in
+        ElementTangentCollection.DifferentiableView(repeating: v, count: count)
+          as! TangentVector
+      }
+    )
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Differentiable higher order functions for collections
+//===----------------------------------------------------------------------===//
+
+// we need to extend differentiability to as many stdlib collection protocols
+// and protocol methods as possible. For now, this hasn't happened yet just so
+// that the existing prototype can be validated and discussed.
+
+#if false // the alternative extension that causes the crash
+extension DifferentiableCollection {
+  @inlinable
+  @differentiable(reverse, wrt: self)
+  public func differentiableMap<Result: Differentiable>(
+    _ body: @differentiable(reverse) (Element) -> Result
+  ) -> [Result] {
+    map(body)
+  }
+}
+#endif
+
+#if true
+extension DifferentiableCollection
+where
+  Self: RangeReplaceableCollection,
+  ElementTangentCollection: RangeReplaceableCollection,
+  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
+  Index == Int
+{
+  @inlinable
+//  @differentiable(reverse, wrt: self) // --- test enabling this to see if it
+  // crashes the compiler. If so, isolate and report.
+  public func differentiableMap<Result: DifferentiableCollection>(
+    _ body: @differentiable(reverse) (Element) -> Result.Element
+  ) -> Result
+  where
+    Result: RangeReplaceableCollection,
+    Result.TangentVector: RangeReplaceableCollection,
+    Result.ElementTangentCollection: RangeReplaceableCollection,
+    Result.Index == Int
+  {
+    // try to overload with something more optimized in the case of Array
+    //map(body)
+    var output = Result()
+    for element in self {
+      output.append(body(element))
+    }
+    return output
+  }
+  
+  // why is the _vjp explicitly internal?
+  @inlinable
+  @derivative(of: differentiableMap)
+  internal func _vjpDifferentiableMap<Result: DifferentiableCollection>(
+    _ body: @differentiable(reverse) (Element) -> Result.Element
+  ) -> (
+    value: Result,
+    pullback: (Result.TangentVector) -> TangentVector
+  )
+  where
+    Result: RangeReplaceableCollection,
+    Result.TangentVector: RangeReplaceableCollection,
+    Result.ElementTangentCollection: RangeReplaceableCollection,
+    Result.Index == Int
+  {
+    var values = Result()
+    var pullbacks: [(Result.Element.TangentVector) -> Element.TangentVector] = []
+    for x in self {
+      let (y, pb) = valueWithPullback(at: x, of: body)
+      values.append(y)
+      pullbacks.append(pb)
+    }
+    func pullback(_ tans: Result.TangentVector) -> TangentVector {
+      // try to overload with something more optimized in the case of Array
+      //map(body)
+      var output = ElementTangentCollection()
+      for i in tans.indices {
+        output.append(pullbacks[i](tans[i]))
+      }
+      return ElementTangentCollection.DifferentiableView(output)
+       as! TangentVector
+    }
+    return (value: values, pullback: pullback)
+  }
+
+  // why is the _jvp explicitly internal?
+}
+#endif
+
+// TODO: - second part, ask why only _jvp is not `internal`
+
+
