@@ -13,6 +13,8 @@ extension DifferentiableCollection {
 }
 
 /*
+Assertion failed: (!NodePtr->isKnownSentinel()), function operator*, file ilist_iterator.h, line 138.
+
 1.	Apple Swift version 5.6-dev (LLVM 7b20e61dd04138a, Swift 9438cf6b2e83c5f)
 2.	Compiling with the current language version
 3.	While evaluating request ExecuteSILPipelineRequest(Run pipelines { Mandatory Diagnostic Passes + Enabling Optimization Passes } on SIL for Experimentation4)
