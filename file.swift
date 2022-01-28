@@ -225,6 +225,13 @@ where Base: RangeReplaceableCollection, Base.SubSequence == Slice<Base> {
   }
 }
 
+extension DifferentiableCollectionView: BidirectionalCollection
+where Base: BidirectionalCollection {
+  public func index(before i: Index) -> Index {
+    base.index(before: i)
+  }
+}
+
 // MARK: - Extensions to DifferentiableCollection
 
 /// Makes `Array` differentiable as the product manifold of `Element`
@@ -307,7 +314,7 @@ where
   Self: RangeReplaceableCollection,
   ElementTangentCollection: RangeReplaceableCollection,
   ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
-  Index == Int
+  Index == Int // is there any way to remove this restriction?
 {
   // We shouldn't need to duplicate this code for the generic signature
   // permutation `(lhs: Other, rhs: Self)` because `lhs` also conforms to
@@ -400,5 +407,118 @@ where
         as! Self.TangentVector
     }
     return (lhs + rhs, differential)
+  }
+}
+
+extension DifferentiableCollection
+where
+  Self: RangeReplaceableCollection & BidirectionalCollection,
+  TangentVector: RangeReplaceableCollection & BidirectionalCollection,
+  ElementTangentCollection: RangeReplaceableCollection &
+    BidirectionalCollection, // should I keep this on the line above for readability?
+  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
+  Index == Int
+{
+  @_disfavoredOverload
+  public mutating func append(_ newElement: Element) {
+    fatalError("""
+      \(Self.self) must override the default implementation of `append(_:)` \
+      when conforming to `DifferentiableCollection`.
+      """)
+  }
+  
+  // isn't there any rule for which order we declare JVP and VJP in? For tgmath,
+  // it was JVP then VJP. Here, it's the reverse.
+  @usableFromInline
+  @derivative(of: append(_:))
+  mutating func _vjpAppend(_ element: Element) -> (
+    value: Void, pullback: (inout TangentVector) -> Element.TangentVector
+  ) {
+    let appendedElementIndex = count
+    append(element)
+    return ((), { v in
+      // can't be just use popLast() to remove the restriction that Index == Int?
+      defer { v.removeLast() }
+      return v[appendedElementIndex]
+    })
+  }
+  
+  @usableFromInline
+  @derivative(of: append(_:))
+  mutating func _jvpAppend(_ element: Element) -> (
+    value: Void,
+    differential: (inout TangentVector, Element.TangentVector) -> Void
+  ) {
+    append(element)
+    return ((), { $0.append($1) })
+  }
+  
+  // TODO: check that this actually translates into a change in
+  // behavior of `append(contentsOf:)`. Otherwise, there might need to be
+  // a LOT more overloading of behavior of sequences' methods - enough
+  // to make it impossible to conform custom collections to Differentiable
+  // unless they just conform select methods
+  
+  @_disfavoredOverload
+  public static func += <Other: DifferentiableCollection>(
+    _ lhs: inout Self,
+    rhs: Other
+  )
+  where
+    Element == Other.Element,
+    Other: RangeReplaceableCollection & BidirectionalCollection,
+    Other.TangentVector: RangeReplaceableCollection & BidirectionalCollection,
+    Other.ElementTangentCollection: RangeReplaceableCollection &
+      BidirectionalCollection
+  {
+    fatalError("""
+      \(Self.self) must override the default implementation of `append(_:)` \
+      when conforming to `DifferentiableCollection`.
+      """)
+  }
+  
+  @usableFromInline
+  @derivative(of: +=)
+  static func _vjpAppend<Other: DifferentiableCollection>(
+    _ lhs: inout Self,
+    _ rhs: Other
+  ) -> (
+    value: Void, pullback: (inout TangentVector) -> Other.TangentVector
+  )
+  where
+    Element == Other.Element,
+    Other: RangeReplaceableCollection & BidirectionalCollection,
+    Other.TangentVector: RangeReplaceableCollection & BidirectionalCollection,
+    Other.ElementTangentCollection: RangeReplaceableCollection &
+      BidirectionalCollection
+  {
+    let lhsCount = lhs.count
+    lhs += rhs
+    return ((), { v in
+      let drhs = Other.ElementTangentCollection.DifferentiableView(
+        .init(v.dropFirst(lhsCount))) as! Other.TangentVector
+      let rhsCount = drhs.count
+      v.removeLast(rhsCount)
+      return drhs
+    })
+  }
+  
+  @usableFromInline
+  @derivative(of: +=)
+  static func _jvpAppend<Other: DifferentiableCollection>(
+    _ lhs: inout Self,
+    _ rhs: Other
+  ) -> (
+    value: Void, differential: (inout TangentVector, Other.TangentVector) -> Void
+  )
+  where
+    Element == Other.Element,
+    Other: RangeReplaceableCollection & BidirectionalCollection,
+    Other.TangentVector: RangeReplaceableCollection & BidirectionalCollection,
+    Other.ElementTangentCollection: RangeReplaceableCollection &
+      BidirectionalCollection
+  {
+    lhs += rhs
+    return ((), { $0 += $1 })
   }
 }
