@@ -318,6 +318,12 @@ where
   // duplicating the code until we're either confident this is the final
   // implementation or can set it up using gyb.
   
+  // Alternatively, it would be possible to overload the alternative generic
+  // signature by calling the existing function with swapped parameters. But,
+  // that might make it complicated to conform to the protocol or open
+  // opportunities to misuse it. This idea should be discussed before being
+  // decided upon.
+  
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
   public static func + <Other: DifferentiableCollection>(
