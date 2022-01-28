@@ -309,10 +309,14 @@ where
   ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
   Index == Int
 {
-  // NOTE: - We shouldn't need to duplicate this code for the generic signature
-  // permutation (lhs: Other, rhs: Self) because `lhs` also conforms to
-  // DifferentiableCollection and thus would be (lhs: Self, rhs: Other)
-  // relative to it.
+  // We shouldn't need to duplicate this code for the generic signature
+  // permutation `(lhs: Other, rhs: Self)` because `lhs` also conforms to
+  // DifferentiableCollection and thus the signature would be `(lhs: Self,
+  // rhs: Other)` relative to it. Although, this may diverge from the behavior
+  // of the actual operator + in RangeReplaceableCollection, which would return
+  // `Self` in either situation. Regardless, it's best to hold off on
+  // duplicating the code until we're either confident this is the final
+  // implementation or can set it up using gyb.
   
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
