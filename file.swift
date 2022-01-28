@@ -21,9 +21,6 @@ where
   
   // TODO: document that `zero` should be the empty collection
   static var zero: Self { get }
-  
-  /// Must be overridden.
-  subscript(position: Index) -> Element { get set }
 }
 
 extension DifferentiableCollection {
@@ -198,6 +195,38 @@ where Element: AdditiveArithmetic {
   }
 }
 
+extension DifferentiableCollectionView: RangeReplaceableCollection
+where Base: RangeReplaceableCollection, Base.SubSequence == Slice<Base> {
+  // DO NOT explicitly declare `typealias SubSequence` or else the compiler will
+  // crash.
+  //typealias SubSequence == Slice<Base>
+  
+  public init() {
+    self.init(Base.zero)
+  }
+  
+  // Why is this argument label `bounds` in the standard library? Shouldn't it
+  // be `position`? Inconsistencies like this may cause problems if overloading
+  // subscripting operators for AutoDiff eventually requires specification
+  // of argument labels.
+  public subscript(bounds: Index) -> Element {
+    get { base[bounds] }
+  }
+  
+  public subscript(bounds: Range<Index>) -> Slice<Base> {
+    get { base[bounds] }
+  }
+  
+  public mutating func replaceSubrange<C>(
+    _ subrange: Range<Base.Index>,
+    with newElements: C
+  ) where C : Collection, Base.Element == C.Element {
+    base.replaceSubrange(subrange, with: newElements)
+  }
+}
+
+// MARK: - Extensions to DifferentiableCollection
+
 /// Makes `Array` differentiable as the product manifold of `Element`
 /// multiplied with itself `count` times.
 extension DifferentiableCollection {
@@ -224,11 +253,12 @@ extension DifferentiableCollection {
 extension DifferentiableCollection
 where
   ElementTangentCollection: RangeReplaceableCollection,
-  // not technically required by Swift, but we should add `Self: RangeReplaceableCollection` because it's supposed to be the same generic type just with a different Element
+  // not technically required by Swift, but we should add `Self: RangeReplaceableCollection` because `ElementTangentCollection` is supposed to be the same generic type just with a different Element
   ElementTangentCollection.Index == Index
 {
+  /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
-  subscript(position: Index) -> Element {
+  public subscript(position: Index) -> Element {
     get {
       fatalError("""
         \(Self.self) must override the default implementation of \
@@ -276,11 +306,24 @@ extension DifferentiableCollection
 where
   Self: RangeReplaceableCollection,
   ElementTangentCollection: RangeReplaceableCollection,
+  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
   Index == Int
 {
+  // NOTE: - We shouldn't need to duplicate this code for the generic signature
+  // permutation (lhs: Other, rhs: Self) because `lhs` also conforms to
+  // DifferentiableCollection and thus would be (lhs: Self, rhs: Other)
+  // relative to it.
+  
+  /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
-  static func + <Other: DifferentiableCollection>(lhs: Self, rhs: Other) -> Self
-  where Self.Element == Other.Element
+  public static func + <Other: DifferentiableCollection>(
+    lhs: Self,
+    rhs: Other
+  ) -> Self
+  where
+    Element == Other.Element,
+    Other: RangeReplaceableCollection,
+    Other.TangentVector: RangeReplaceableCollection
   {
     fatalError("""
       \(Self.self) must override the default implementation of `+ (lhs:rhs:)` \
@@ -289,15 +332,19 @@ where
   }
   
   @usableFromInline
-  @derivative(of: DifferentiableCollection.+)
-  // should I turn `Sequence & Differentiable` into `DifferentiableCollection`?
+  @derivative(of: +)
   static func _vjpConcatenate<Other: DifferentiableCollection>(
     _ lhs: Self,
     _ rhs: Other
   ) -> (
     value: Self,
     pullback: (TangentVector) -> (TangentVector, Other.TangentVector)
-  ) where Element == Other.Element {
+  )
+  where
+    Element == Other.Element,
+    Other: RangeReplaceableCollection,
+    Other.TangentVector: RangeReplaceableCollection
+  {
     func pullback(_ v: TangentVector) -> (TangentVector, Other.TangentVector) {
       if v.isEmpty {
         return (.zero, .zero)
@@ -313,5 +360,34 @@ where
       ) as! (TangentVector, Other.TangentVector)
     }
     return (lhs + rhs, pullback)
+  }
+  
+  @usableFromInline
+  @derivative(of: +)
+  static func _jvpConcatenate<Other: DifferentiableCollection>(
+    _ lhs: Self,
+    _ rhs: Other
+  ) -> (
+    value: Self,
+    differential: (TangentVector, Other.TangentVector) -> TangentVector
+  )
+  where
+    Element == Other.Element,
+    Other: RangeReplaceableCollection,
+    Other.TangentVector: RangeReplaceableCollection
+  {
+    func differential(
+      _ l: TangentVector,
+      _ r: Other.TangentVector
+    ) -> TangentVector {
+      precondition(
+        l.count == lhs.count && r.count == rhs.count, """
+          Tangent vectors with invalid count; expected to equal the operand \
+          counts \(lhs.count) and \(rhs.count)
+          """)
+      return ElementTangentCollection.DifferentiableView(l + r)
+        as! Self.TangentVector
+    }
+    return (lhs + rhs, differential)
   }
 }
