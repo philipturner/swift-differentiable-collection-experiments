@@ -651,4 +651,42 @@ where
 //  @inlinable
 //  @derivative(of: differentiableMap)
 //  internal func _jvpDifferentiableMap<Result: Diff
+  
+  @inlinable
+  @derivative(of: differentiableMap)
+  internal func _jvpDifferentiableMap<Result: DifferentiableCollection>(
+    _ body: @differentiable(reverse) (Element) -> Result.Element
+  ) -> (
+    value: Result,
+    differential: (TangentVector) -> Result.TangentVector
+  )
+  where
+    Result: RangeReplaceableCollection,
+    Result.TangentVector: RangeReplaceableCollection,
+    Result.ElementTangentCollection: RangeReplaceableCollection,
+    Result.Index == Int
+  {
+    var values = Result()
+    var differentials: [(Element.TangentVector) -> Result.Element.TangentVector] = []
+    for x in self {
+      let (y, df) = valueWithDifferential(at: x, of: body)
+      values.append(y)
+      differentials.append(df)
+    }
+    func differential(_ tans: TangentVector) -> Result.TangentVector {
+      // the line below should not compile, yet it does. That means the compiler
+      // is assuming `Result` is an `Array` even though that isn't true, right?
+//      .init(zip(tans.base, differentials).map { tan, df in df(tan) })
+      
+      // try to overload with something more optimized in the case of Array
+      //map(body)
+      
+      var output = Result.ElementTangentCollection()
+      for i in tans.indices {
+        output.append(differentials[i](tans[i]))
+      }
+      return Result.ElementTangentCollection.DifferentiableView(output)
+    }
+    return (value: values, differential: differential)
+  }
 }
