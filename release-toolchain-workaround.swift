@@ -9,12 +9,6 @@
 // work around errors caused by RequirementMachine.
 import Differentiation
 
-// MARK: - Declare DifferentiableCollection
-
-// NOTE: - instead of making @_disfavoredOverload operators, make sub-protocols
-// of DifferentiableRangeReplaceableCollection - use the operators inherited
-// there.
-
 // Must be a `MutableCollection` to that each element can be modified in the
 // `move` operator. Although in theory, one might be able to have a workaround
 // where you construct a new copy and reassign `self`, that would go against the
@@ -57,20 +51,20 @@ extension DifferentiableCollection {
   }
 }
 
-// MARK: - Declare conformances
-
 public protocol DifferentiableCollectionViewProtocol: DifferentiableCollection {
   associatedtype Base: DifferentiableCollection
   
+  @differentiable(reverse)
   var base: Base { get set }
   
+  @differentiable(reverse)
   init(_ base: Base)
 }
 
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: DifferentiableCollectionViewProtocol {
   public typealias ElementTangentCollection = Base.ElementTangentCollection
   
-  var _base: Base // why do we need a wrapper and extra code to access it? It's boilerplate code and prevents differentiation of _modify.
+  var _base: Base
 }
 
 extension DifferentiableCollectionView: DifferentiableCollection {
@@ -82,14 +76,13 @@ extension DifferentiableCollectionView: DifferentiableCollection {
       if position < endIndex {
         yield base[position]
       } else {
-        yield Element.zero // why is this even allowed (and checked in tests)? If it is, shouldn't it check for position < base.startIndex too?
-        //
-        // Maybe it's to allow for an optimized .zero type like Tensor.zero?
+        yield Element.zero
       }
     }
-    set(newValue) {
-      // if the above invalid subscript access is to be permitted, shouldn't some bounds checking happen here as well?
-      base[position] = newValue
+    set {
+      if position < endIndex {
+        base[position] = newValue
+      }
     }
   }
   
@@ -106,31 +99,31 @@ extension DifferentiableCollectionView: DifferentiableCollection {
 extension DifferentiableCollectionView: Differentiable {
   /// The viewed array.
   public var base: Base {
-    get { _base }
+    get { _base } // why can't we use `_read` here?
     _modify { yield &_base }
   }
   
   @inlinable // I changed a lot of instances of @usableFromInline to @inlinable. I'd rather not make a side note on every single example. Is there any reason not to do this?
   @derivative(of: base.get)
   func _vjpBase() -> (
-    value: Base, pullback: (Base.TangentVector) -> TangentVector // is `Base.` really necessary? if so, shouldn't it be `(TangentVector) -> Base.TangentVector`?
+    value: Base, pullback: (TangentVector) -> TangentVector
   ) {
     return (base, { $0 })
   }
   
-  // TODO: add derivative of base._modify once that's supported
-
   @inlinable
   @derivative(of: base.get)
   func _jvpBase() -> (
-    value: Base, differential: (Base.TangentVector) -> TangentVector // is `Base.` really necessary?
+    value: Base, differential: (TangentVector) -> TangentVector
   ) {
     return (base, { $0 })
   }
   
-  // TODO: add derivative of base._modify once that's supported
+  // TODO(SR-14113): add derivative of base._modify once that's supported
+  // or make a derivative or base.set - is that a valid solution?
   
   /// Creates a differentiable view of the given array.
+  @differentiable(reverse)
   public init(_ base: Base) {
     _base = base
   }
@@ -158,12 +151,12 @@ extension DifferentiableCollectionView: Differentiable {
       return
     }
     precondition(
-      base.count == offset.count, """
-        Count mismatch: \(base.count) ('self') and \(offset.count) ('direction')
+      count == offset.count, """
+        Count mismatch: \(count) ('self') and \(offset.count) ('direction')
         """)
     
     for i in offset.indices {
-      base[i].move(by: offset[i])
+      self[i].move(by: offset[i])
     }
   }
 }
@@ -171,24 +164,21 @@ extension DifferentiableCollectionView: Differentiable {
 extension DifferentiableCollectionView: Equatable
 where Element: Equatable {
   public static func == (lhs: Self, rhs: Self) -> Bool {
-    lhs.base.elementsEqual(rhs.base)
+    lhs.elementsEqual(rhs)
   }
 }
 
 extension DifferentiableCollectionView: ExpressibleByArrayLiteral
-where Base: RangeReplaceableCollection { // should I add the ExpresibleByArrayLiteral requirement to Base as well?
+where Base: RangeReplaceableCollection {
   public init(arrayLiteral elements: Element...) {
     self.init(Base(elements))
   }
 }
 
-// is it possible to implement ExpressibleByDictionaryLiteral? I tried and got nowhere. If it's not possible, make a TODO for if a future language future enables it.
 // why is there only conformance for CustomStringConvertible and not CustomDebugStringConvertible or CustomReflectable?
 extension DifferentiableCollectionView: CustomStringConvertible
 where Base: CustomStringConvertible {
-  public var description: String {
-    return base.description
-  }
+  public var description: String { base.description }
 }
 
 /// Makes `Array.DifferentiableView` additive as the product space.
@@ -197,9 +187,7 @@ where Base: CustomStringConvertible {
 /// of all counts.
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
-  public static var zero: Self {
-    return Self(Base.zero) // do I have to put this on a new line? If not, why is DifferentiableView.init a one-liner?
-  }
+  public static var zero: Self { .init(Base.zero) }
   
   public static func + (lhs: Self, rhs: Self) -> Self {
     if lhs.base.count == 0 {
@@ -297,12 +285,14 @@ extension DifferentiableRangeReplaceableCollection {
   public subscript(position: Index) -> Element {
     get {
       fatalError("""
+        This should never happen. \
         \(Self.self) must override the default implementation of \
         `subscript(position:)` when conforming to `DifferentiableCollection`.
         """)
     }
     _modify {
       fatalError("""
+        This should never happen. \
         "\(Self.self) must override the default implementation of \
         `subscript(position:)` when conforming to `DifferentiableCollection`.
         """)
@@ -326,8 +316,6 @@ extension DifferentiableRangeReplaceableCollection {
     return (self[index], pullback)
   }
   
-  // TODO: add derivative of subscript._modify once that's supported
-  
   @inlinable
   @derivative(of: subscript.get)
   func _jvpSubscript(index: Index) -> (
@@ -339,7 +327,8 @@ extension DifferentiableRangeReplaceableCollection {
     return (self[index], differential)
   }
   
-  // TODO: add derivative of subscript._modify once that's supported
+  // TODO(SR-14113): add derivative of subscript._modify once that's supported
+  // or make a derivative or base.set - is that a valid solution?
 }
 
 extension DifferentiableRangeReplaceableCollection
@@ -371,6 +360,7 @@ where Index == Int // is there any way to remove this restriction?
     Element == Other.Element
   {
     fatalError("""
+      This should never happen. \
       \(Self.self) must override the default implementation of `+ (lhs:rhs:)` \
       when conforming to `DifferentiableCollection`.
       """)
@@ -438,6 +428,7 @@ where Self: DifferentiableBidirectionalCollection
   @_disfavoredOverload
   public mutating func append(_ newElement: Element) {
     fatalError("""
+      This should never happen. \
       \(Self.self) must override the default implementation of `append(_:)` \
       when conforming to `DifferentiableCollection`.
       """)
@@ -467,9 +458,7 @@ where Self: DifferentiableBidirectionalCollection
   
   // TODO: check that this actually translates into a change in
   // behavior of `append(contentsOf:)`. Otherwise, there might need to be
-  // a LOT more overloading of behavior of sequences' methods - enough
-  // to make it impossible to conform custom collections to Differentiable
-  // unless they just conform select methods
+  // a LOT more overloading of behavior of sequences' methods
   
   @_disfavoredOverload
   public static func += <Other: DifferentiableRangeReplaceableCollection>(
@@ -481,6 +470,7 @@ where Self: DifferentiableBidirectionalCollection
     Other: DifferentiableBidirectionalCollection
   {
     fatalError("""
+      This should never happen. \
       \(Self.self) must override the default implementation of `append(_:)` \
       when conforming to `DifferentiableCollection`.
       """)
@@ -494,13 +484,10 @@ where Self: DifferentiableBidirectionalCollection
   ) -> (
     value: Void, pullback: (inout TangentVector) -> Other.TangentVector
   )
-  where
-    Element == Other.Element,
-    Other: DifferentiableBidirectionalCollection
-  {
+  where Element == Other.Element, Other: DifferentiableBidirectionalCollection {
     let lhsCount = lhs.count
     lhs += rhs
-    return ((), { v -> Other.TangentVector in
+    return ((), { v in
       let drhs = Other.TangentVector(.init(v.dropFirst(lhsCount)))
       let rhsCount = drhs.count
       v.removeLast(rhsCount)
@@ -510,14 +497,14 @@ where Self: DifferentiableBidirectionalCollection
   
   @inlinable
   @derivative(of: +=)
-  static func _jvpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
+  static func _jvpAppend<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: inout Self,
     _ rhs: Other
   ) -> (
     value: Void,
     differential: (inout TangentVector, Other.TangentVector) -> Void
   )
-  where Element == Other.Element /* TODO: fix generic signature declaration to match */ {
+  where Element == Other.Element, Other: DifferentiableBidirectionalCollection {
     lhs += rhs
     return ((), { $0 += $1 })
   }
@@ -527,6 +514,7 @@ extension DifferentiableRangeReplaceableCollection {
   @_disfavoredOverload
   public init(repeating: Element, count: Int) {
     fatalError("""
+      This should never happen. \
       \(Self.self) must override the default implementation of \
       `init(repeating:count)` when conforming to `DifferentiableCollection`.
       """)
