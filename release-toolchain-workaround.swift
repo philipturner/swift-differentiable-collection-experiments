@@ -777,3 +777,19 @@ where
     })
   }
 }
+
+extension ContiguousArray: DifferentiableCollection
+where Element: Differentiable & AdditiveArithmetic {
+  public static var zero: ContiguousArray<Element> {
+    .init()
+  }
+  
+  public typealias ElementTangentCollection =
+    ContiguousArray<Element.TangentVector>
+  
+  public typealias TangentVector = DifferentiableCollectionView<ElementTangentCollection>
+}
+
+extension ContiguousArray: Differentiable where Element: Differentiable & AdditiveArithmetic {
+  
+}
