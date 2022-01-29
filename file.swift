@@ -7,7 +7,7 @@
 
 import _Differentiation
 
-// MARK: - Declare DiffRRCollection
+// MARK: - Declare DifferentiableCollection
 
 public protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
 where
