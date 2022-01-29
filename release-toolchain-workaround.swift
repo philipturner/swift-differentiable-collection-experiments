@@ -11,7 +11,7 @@ import Differentiation
 
 // MARK: - Declare DifferentiableCollection
 
-public protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
+public protocol DifferentiableCollection: MutableCollection & Differentiable
 where
   Element: Differentiable & AdditiveArithmetic,
   Element.TangentVector == TangentVector.Element,
@@ -25,6 +25,8 @@ where
   associatedtype DifferentiableView: DifferentiableCollectionViewProtocol
   
   static var zero: Self { get }
+  
+  func elementsEqual(_ other: Self) -> Bool
 }
 
 extension DifferentiableCollection {
@@ -154,7 +156,7 @@ extension DifferentiableCollectionView: Differentiable {
 extension DifferentiableCollectionView: Equatable
 where Element: Equatable {
   public static func == (lhs: Self, rhs: Self) -> Bool {
-    lhs.base == rhs.base
+    lhs.base.elementsEqual(rhs.base)
   }
 }
 
@@ -842,14 +844,4 @@ extension Dictionary.Values: Differentiable
 where Element: Differentiable, // it says conforming this to & AdditiveArithmetic is redundant. I should add it, but I'm going to ask why that diagnostic happens in the first place.
   Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it caused a compilation failure */ {
   
-}
-
-// I don't think this is a good idea, given that it would be modifying the
-// standard library. I need to change how I incorporate the need for Equatable
-// in the original protocol declaration for DifferentiableCollection.
-extension Dictionary.Values: Equatable
-where Element: Differentiable & AdditiveArithmetic {
-  public static func == (lhs: Dictionary<Key, Value>.Values, rhs: Dictionary<Key, Value>.Values) -> Bool {
-    lhs.elementsEqual(rhs)
-  }
 }
