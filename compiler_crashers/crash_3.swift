@@ -1,6 +1,6 @@
 import _Differentiation
 
-// WORKAROUND: add '-Xfrontend -validate-tbd-against-ir=none' to squash the errors
+// WORKAROUND: add '-Xfrontend -validate-tbd-against-ir=none' to squash errors
 
 protocol DifferentiableCollection: Collection & Differentiable
 where Element: Differentiable {}
@@ -27,6 +27,13 @@ extension DifferentiableCollection {
 }
 
 /*
- <unknown>:0: error: symbol '$s16Experimentation424DifferentiableCollectionPAAE9repeating5countx7ElementQz_SitcfCAaBRzlTJfSUUpSr' (forward-mode derivative of (extension in Experimentation4):Experimentation4.DifferentiableCollection.init(repeating: A.Element, count: Swift.Int) -> A with respect to parameters {0} and results {0} with <A where A: Experimentation4.DifferentiableCollection>) is in generated IR file, but not in TBD file
- <unknown>:0: error: please submit a bug report (https://swift.org/contributing/#reporting-bugs) and include the project, and add '-Xfrontend -validate-tbd-against-ir=none' to squash the errors
+ <unknown>:0: error: symbol '$s16Experimentation424DifferentiableCollectionPAAE9repeating5countx7ElementQz_SitcfCAaBRzlTJfSUUpSr'
+   (forward-mode derivative of (extension in
+   Experimentation4):Experimentation4.DifferentiableCollection.init(repeating:
+   A.Element, count: Swift.Int) -> A with respect to parameters {0} and results
+   {0} with <A where A: Experimentation4.DifferentiableCollection>) is in
+   generated IR file, but not in TBD file
+ <unknown>:0: error: please submit a bug report
+   (https://swift.org/contributing/#reporting-bugs) and include the project, and
+   add '-Xfrontend -validate-tbd-against-ir=none' to squash the errors
  */
