@@ -110,7 +110,7 @@ extension DifferentiableCollectionView: Differentiable {
     _modify { yield &_base }
   }
   
-  @usableFromInline
+  @inlinable // I changed a lot of instances of @usableFromInline to @inlinable. I'd rather not make a side note on every single example. Is there any reason not to do this?
   @derivative(of: base.get)
   func _vjpBase() -> (
     value: Base, pullback: (Base.TangentVector) -> TangentVector // is `Base.` really necessary? if so, shouldn't it be `(TangentVector) -> Base.TangentVector`?
@@ -120,7 +120,7 @@ extension DifferentiableCollectionView: Differentiable {
   
   // TODO: add derivative of base._modify once that's supported
 
-  @usableFromInline
+  @inlinable
   @derivative(of: base.get)
   func _jvpBase() -> (
     value: Base, differential: (Base.TangentVector) -> TangentVector // is `Base.` really necessary?
@@ -135,7 +135,7 @@ extension DifferentiableCollectionView: Differentiable {
     _base = base
   }
   
-  @usableFromInline // why can't this be @inlinable (and other instances of @usableFromInline in the _Differentiation module)?
+  @inlinable
   @derivative(of: init(_:))
   static func _vjpInit(_ base: Base) -> (
     value: Self, pullback: (TangentVector) -> TangentVector
@@ -143,7 +143,7 @@ extension DifferentiableCollectionView: Differentiable {
     return (Self(base), { $0 })
   }
 
-  @usableFromInline
+  @inlinable
   @derivative(of: init(_:))
   static func _jvpInit(_ base: Base) -> (
     value: Self, differential: (TangentVector) -> TangentVector
@@ -309,7 +309,7 @@ extension DifferentiableRangeReplaceableCollection {
     }
   }
   
-  @usableFromInline
+  @inlinable
   @derivative(of: subscript.get)
   func _vjpSubscript(index: Index) -> (
     value: Element, pullback: (Element.TangentVector) -> TangentVector
@@ -328,7 +328,7 @@ extension DifferentiableRangeReplaceableCollection {
   
   // TODO: add derivative of subscript._modify once that's supported
   
-  @usableFromInline
+  @inlinable
   @derivative(of: subscript.get)
   func _jvpSubscript(index: Index) -> (
     value: Element, differential: (TangentVector) -> Element.TangentVector
@@ -376,7 +376,7 @@ where Index == Int // is there any way to remove this restriction?
       """)
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: +)
   static func _vjpConcatenate<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: Self,
@@ -405,7 +405,7 @@ where Index == Int // is there any way to remove this restriction?
     return (lhs + rhs, pullback)
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: +)
   static func _jvpConcatenate<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: Self,
@@ -445,9 +445,7 @@ where
       """)
   }
   
-  // isn't there any rule for which order we declare JVP and VJP in? For tgmath,
-  // it was JVP then VJP. Here, it's the reverse.
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: append(_:))
   mutating func _vjpAppend(_ element: Element) -> (
     value: Void, pullback: (inout TangentVector) -> Element.TangentVector
@@ -461,7 +459,7 @@ where
     })
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: append(_:))
   mutating func _jvpAppend(_ element: Element) -> (
     value: Void,
@@ -491,7 +489,7 @@ where
       """)
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: +=)
   static func _vjpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
@@ -512,7 +510,7 @@ where
     })
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: +=)
   static func _jvpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
@@ -541,7 +539,7 @@ extension DifferentiableRangeReplaceableCollection
       """)
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: init(repeating:count:))
   static func _vjpInit(repeating repeatedValue: Element, count: Int) -> (
     value: Self, pullback: (TangentVector) -> Element.TangentVector
@@ -554,7 +552,7 @@ extension DifferentiableRangeReplaceableCollection
     )
   }
   
-  @usableFromInline // why not make this @inlinable?
+  @inlinable
   @derivative(of: init(repeating:count:))
   static func _jvpInit(repeating repeatedValue: Element, count: Int) -> (
     value: Self, differential: (Element.TangentVector) -> TangentVector
@@ -576,10 +574,7 @@ extension DifferentiableRangeReplaceableCollection
 // and protocol methods as possible. For now, this hasn't happened yet just so
 // that the existing prototype can be validated and discussed.
 
-extension DifferentiableRangeReplaceableCollection
-where
-  Index == Int // could this restriction be removed when changing it to return an array?
-{
+extension DifferentiableRangeReplaceableCollection {
   @inlinable
   @differentiable(reverse, wrt: self)
   public func differentiableMap<Result: Differentiable>(
@@ -606,6 +601,9 @@ where
       pullbacks.append(pb)
     }
     func pullback(_ tans: Array<Result>.TangentVector) -> TangentVector {
+      // TODO: Right now, it uses the old Array.DifferentiableView because it
+      // relies on my Differentiation module. In the final form, all instances of
+      // Array.DifferentiableView.base will remove `.base`.
       .init(zip(tans.base, pullbacks).map { tan, pb in pb(tan) })
     }
     return (value: values, pullback: pullback)
