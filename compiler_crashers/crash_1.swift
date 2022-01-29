@@ -1,3 +1,15 @@
+// This seems to be purely caused by RequirementMachine, not AutoDiff.
+//
+// This produces the same stack trace when I conform `DifferentiableCollection`
+// to `MutableCollection` and `Differentiable`, then substitute the following:
+//
+// - INVALID_1 -> TangentVector
+// - INVALID_2 -> TangentVector
+// - INVALID_3 -> Element.TangentVector
+//
+// The purpose of invalidating the names is to isolate the bug and help narrow
+// down where it happens in the compiler.
+
 protocol DifferentiableCollection
 where INVALID_1 == DifferentiableCollectionView<ElementTangentCollection> {
   associatedtype ElementTangentCollection: DifferentiableCollection
