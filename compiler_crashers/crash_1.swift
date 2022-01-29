@@ -4,7 +4,7 @@
 // to `MutableCollection` and `Differentiable`, then substitute the following:
 //
 // - INVALID_1 -> TangentVector
-// - INVALID_2 -> TangentVector
+// - INVALID_2 -> Element
 // - INVALID_3 -> Element.TangentVector
 //
 // Also, one would need to add `import _Differentiation` to this file.
