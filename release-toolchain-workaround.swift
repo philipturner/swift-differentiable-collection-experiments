@@ -14,9 +14,9 @@ import Differentiation
 public protocol DifferentiableCollection: MutableCollection & Differentiable & Equatable
 where
   Element: Differentiable & AdditiveArithmetic,
-  TangentVector: DifferentiableCollectionViewProtocol,
   Element.TangentVector == TangentVector.Element,
-  Index == TangentVector.Index
+  Index == TangentVector.Index,
+  TangentVector == ElementTangentCollection.DifferentiableView
 {
   associatedtype ElementTangentCollection: DifferentiableCollection
   where ElementTangentCollection.Element == Element.TangentVector
@@ -28,6 +28,23 @@ where
 
 extension DifferentiableCollection {
   public typealias DifferentiableView = DifferentiableCollectionView<Self>
+}
+
+
+/// Makes `Array` differentiable as the product manifold of `Element`
+/// multiplied with itself `count` times.
+extension DifferentiableCollection {
+  // In an ideal world, `TangentVector` would be `[Element.TangentVector]`.
+  // Unfortunately, we cannot conform `Array` to `AdditiveArithmetic` for
+  // `TangentVector` because `Array` already has a static `+` method with
+  // different semantics from `AdditiveArithmetic.+`. So we use
+  // `Array.DifferentiableView` for all these associated types.
+  
+  public mutating func move(by offset: TangentVector) {
+    var view = DifferentiableView(self)
+    view.move(by: offset)
+    self = view.base
+  }
 }
 
 // MARK: - Declare conformances
@@ -236,24 +253,6 @@ where Base: BidirectionalCollection {
 
 // MARK: - Extensions to DifferentiableCollection
 
-/// Makes `Array` differentiable as the product manifold of `Element`
-/// multiplied with itself `count` times.
-extension DifferentiableCollection {
-  // In an ideal world, `TangentVector` would be `[Element.TangentVector]`.
-  // Unfortunately, we cannot conform `Array` to `AdditiveArithmetic` for
-  // `TangentVector` because `Array` already has a static `+` method with
-  // different semantics from `AdditiveArithmetic.+`. So we use
-  // `Array.DifferentiableView` for all these associated types.
-  //typealias TangentVector = ElementTangentCollection.DifferentiableView
-  
-  // TODO: - the `TangentVector` typealias is declared when conforming each individual collection protocol TO Differentiable. The typealias should NOT be declared here because of the compiler crash (it was in the original file). Where should the above documentation go then, if it still can't be declared here after the crash is fixed??
-  
-  public mutating func move(by offset: TangentVector) {
-    var view = DifferentiableView(self)
-    view.move(by: offset)
-    self = view.base
-  }
-}
 
 //===----------------------------------------------------------------------===//
 // Derivatives
@@ -634,10 +633,13 @@ where
         output.append(pullbacks[i](tans[i]))
       }
       return ElementTangentCollection.DifferentiableView(output)
-       as! TangentVector
+        as! TangentVector
     }
     return (value: values, pullback: pullback)
   }
 
-  // why is the _jvp explicitly internal?
+//   why is the _jvp explicitly internal?
+//  @inlinable
+//  @derivative(of: differentiableMap)
+//  internal func _jvpDifferentiableMap<Result: Diff
 }
