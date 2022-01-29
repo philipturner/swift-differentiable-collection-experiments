@@ -822,3 +822,32 @@ where Element: Differentiable & AdditiveArithmetic {
 // because Element (a tuple) cannot conform to a protocol
 
 // any other kinds of collections that aren't a RangeReplaceableCollection?
+
+extension Dictionary.Values: DifferentiableCollection
+where Element: Differentiable & AdditiveArithmetic,
+      Dictionary<Key, Element.TangentVector>.Index == Index {
+  public static var zero: Dictionary.Values {
+    Dictionary<Key, Element>().values
+  }
+  
+  public typealias ElementTangentCollection =
+    Dictionary<Key, Element.TangentVector>.Values
+  
+  public typealias TangentVector =
+    DifferentiableCollectionView<ElementTangentCollection>
+}
+
+extension Dictionary.Values: Differentiable
+where Element: Differentiable & AdditiveArithmetic,
+      Dictionary<Key, Element.TangentVector>.Index == Index {
+  
+}
+
+extension Dictionary.Values: Equatable
+where Element: Differentiable & AdditiveArithmetic {
+  public static func == (lhs: Dictionary<Key, Value>.Values, rhs: Dictionary<Key, Value>.Values) -> Bool {
+    lhs.elementsEqual(rhs)
+  }
+  
+
+}
