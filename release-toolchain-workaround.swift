@@ -22,13 +22,14 @@ import Differentiation
 public protocol DifferentiableCollection: MutableCollection & Differentiable
 where
   Element: Differentiable & AdditiveArithmetic,
-  Element.TangentVector == TangentVector.Element,
-  Index == TangentVector.Index,
   TangentVector == ElementTangentCollection.DifferentiableView,
   TangentVector.Base == ElementTangentCollection
 {
   associatedtype ElementTangentCollection: DifferentiableCollection
-  where ElementTangentCollection.Element == Element.TangentVector
+  where
+    ElementTangentCollection.Element == Element.TangentVector,
+    ElementTangentCollection.Element == TangentVector.Element,
+    ElementTangentCollection.Index == Index
   
   associatedtype DifferentiableView: DifferentiableCollectionViewProtocol
   
