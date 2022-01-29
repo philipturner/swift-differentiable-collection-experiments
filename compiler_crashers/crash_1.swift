@@ -7,6 +7,8 @@
 // - INVALID_2 -> TangentVector
 // - INVALID_3 -> Element.TangentVector
 //
+// Also, one would need to add `import _Differentiation` to this file.
+//
 // The purpose of invalidating the names is to isolate the bug and help narrow
 // down where it happens in the compiler.
 
