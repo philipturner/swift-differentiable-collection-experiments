@@ -25,13 +25,13 @@ where
   TangentVector == ElementTangentCollection.DifferentiableView,
   TangentVector.Base == ElementTangentCollection
 {
+  associatedtype DifferentiableView: DifferentiableCollectionViewProtocol
+  
   associatedtype ElementTangentCollection: DifferentiableCollection
   where
     ElementTangentCollection.Element == Element.TangentVector,
     ElementTangentCollection.Element == TangentVector.Element,
     ElementTangentCollection.Index == Index
-  
-  associatedtype DifferentiableView: DifferentiableCollectionViewProtocol
   
   static var zero: Self { get } // should this be renamed to `empty`?
   
@@ -41,7 +41,6 @@ where
 extension DifferentiableCollection {
   public typealias DifferentiableView = DifferentiableCollectionView<Self>
 }
-
 
 /// Makes `Array` differentiable as the product manifold of `Element`
 /// multiplied with itself `count` times.
@@ -231,11 +230,7 @@ where Element: AdditiveArithmetic {
 }
 
 extension DifferentiableCollectionView: RangeReplaceableCollection
-where Base: RangeReplaceableCollection, Base.SubSequence == Slice<Base> {
-  // DO NOT explicitly declare `typealias SubSequence` or else the compiler will
-  // crash.
-  //typealias SubSequence == Slice<Base>
-  
+where Base: RangeReplaceableCollection {
   public init() {
     self.init(Base.zero)
   }
@@ -244,11 +239,11 @@ where Base: RangeReplaceableCollection, Base.SubSequence == Slice<Base> {
   // be `position`? Inconsistencies like this may cause problems if overloading
   // subscripting operators for AutoDiff eventually requires specification
   // of argument labels.
-  public subscript(bounds: Index) -> Element {
-    get { base[bounds] }
+  public subscript(position: Index) -> Element {
+    get { base[position] }
   }
   
-  public subscript(bounds: Range<Index>) -> Slice<Base> {
+  public subscript(bounds: Range<Index>) -> Base.SubSequence {
     get { base[bounds] }
   }
   
