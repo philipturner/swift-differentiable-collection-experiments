@@ -19,7 +19,7 @@ import Differentiation
 // `move` operator. Although in theory, one might be able to have a workaround
 // where you construct a new copy and reassign `self`, that would go against the
 // philosophy of `MutableCollection` and probably have O(n^2) performance.
-public protocol DifferentiableCollection: MutableCollection & Differentiable
+public protocol DifferentiableCollection: MutableCollection, Differentiable
 where
   Element: Differentiable & AdditiveArithmetic,
   TangentVector == ElementTangentCollection.DifferentiableView,
@@ -38,10 +38,6 @@ where
   func elementsEqual(_ other: Self) -> Bool
 }
 
-extension DifferentiableCollection {
-  public typealias DifferentiableView = DifferentiableCollectionView<Self>
-}
-
 /// Makes `Array` differentiable as the product manifold of `Element`
 /// multiplied with itself `count` times.
 extension DifferentiableCollection {
@@ -50,6 +46,7 @@ extension DifferentiableCollection {
   // `TangentVector` because `Array` already has a static `+` method with
   // different semantics from `AdditiveArithmetic.+`. So we use
   // `Array.DifferentiableView` for all these associated types.
+  public typealias DifferentiableView = DifferentiableCollectionView<Self>
   
   public mutating func move(by offset: TangentVector) {
     var view = DifferentiableView(self)
@@ -229,16 +226,23 @@ where Element: AdditiveArithmetic {
   }
 }
 
+// MARK: - DifferentiableRangeReplaceableCollection
+
+public protocol DifferentiableRangeReplaceableCollection:
+  DifferentiableCollection, RangeReplaceableCollection
+where
+  TangentVector: RangeReplaceableCollection,
+  ElementTangentCollection: RangeReplaceableCollection
+{
+  
+}
+
 extension DifferentiableCollectionView: RangeReplaceableCollection
 where Base: RangeReplaceableCollection {
   public init() {
     self.init(Base.zero)
   }
   
-  // Why is this argument label `bounds` in the standard library? Shouldn't it
-  // be `position`? Inconsistencies like this may cause problems if overloading
-  // subscripting operators for AutoDiff eventually requires specification
-  // of argument labels.
   public subscript(position: Index) -> Element {
     get { base[position] }
   }
@@ -253,6 +257,17 @@ where Base: RangeReplaceableCollection {
   ) where C : Collection, Base.Element == C.Element {
     base.replaceSubrange(subrange, with: newElements)
   }
+}
+
+// MARK: - DifferentiableBidirectionalCollection
+
+public protocol DifferentiableBidirectionalCollection:
+  DifferentiableCollection, BidirectionalCollection
+where
+  TangentVector: BidirectionalCollection,
+  ElementTangentCollection: BidirectionalCollection
+{
+  
 }
 
 extension DifferentiableCollectionView: BidirectionalCollection
@@ -270,9 +285,8 @@ where Base: BidirectionalCollection {
 //===----------------------------------------------------------------------===//
 extension DifferentiableCollection
 where
-  ElementTangentCollection: RangeReplaceableCollection,
+  ElementTangentCollection: RangeReplaceableCollection
   // not technically required by Swift, but we should add `Self: RangeReplaceableCollection` because `ElementTangentCollection` is supposed to be the same generic type just with a different Element
-  ElementTangentCollection.Index == Index
 {
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
@@ -325,7 +339,6 @@ where
   Self: RangeReplaceableCollection,
   TangentVector: RangeReplaceableCollection,
   ElementTangentCollection: RangeReplaceableCollection,
-  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
   Index == Int // is there any way to remove this restriction?
 {
   // We shouldn't need to duplicate this code for the generic signature
@@ -429,7 +442,6 @@ where
   TangentVector: RangeReplaceableCollection & BidirectionalCollection,
   ElementTangentCollection: RangeReplaceableCollection &
     BidirectionalCollection, // should I keep this on the line above for readability?
-  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
   Index == Int
 {
   @_disfavoredOverload
