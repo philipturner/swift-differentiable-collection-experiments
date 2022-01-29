@@ -47,6 +47,8 @@ extension DifferentiableCollection {
   // different semantics from `AdditiveArithmetic.+`. So we use
   // `Array.DifferentiableView` for all these associated types.
   public typealias DifferentiableView = DifferentiableCollectionView<Self>
+  // TODO: - the above documentation isn't 100% appropriate because
+  // declaration of `TangentVector` has been moved outside of this block of code
   
   public mutating func move(by offset: TangentVector) {
     var view = DifferentiableView(self)
@@ -68,7 +70,7 @@ public protocol DifferentiableCollectionViewProtocol: DifferentiableCollection {
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: DifferentiableCollectionViewProtocol {
   public typealias ElementTangentCollection = Base.ElementTangentCollection
   
-  var _base: Base
+  var _base: Base // why do we need a wrapper and extra code to access it? It's boilerplate code and prevents differentiation of _modify.
 }
 
 extension DifferentiableCollectionView: DifferentiableCollection {
@@ -109,23 +111,29 @@ extension DifferentiableCollectionView: Differentiable {
   }
   
   @usableFromInline
-  @derivative(of: base)
+  @derivative(of: base.get)
   func _vjpBase() -> (
     value: Base, pullback: (Base.TangentVector) -> TangentVector // is `Base.` really necessary? if so, shouldn't it be `(TangentVector) -> Base.TangentVector`?
   ) {
     return (base, { $0 })
   }
+  
+  // TODO: add derivative of base._modify once that's supported
 
   @usableFromInline
-  @derivative(of: base)
+  @derivative(of: base.get)
   func _jvpBase() -> (
     value: Base, differential: (Base.TangentVector) -> TangentVector // is `Base.` really necessary?
   ) {
     return (base, { $0 })
   }
   
+  // TODO: add derivative of base._modify once that's supported
+  
   /// Creates a differentiable view of the given array.
-  public init(_ base: Base) { self._base = base } // can we remove `self`?
+  public init(_ base: Base) {
+    _base = base
+  }
   
   @usableFromInline // why can't this be @inlinable (and other instances of @usableFromInline in the _Differentiation module)?
   @derivative(of: init(_:))
@@ -279,11 +287,10 @@ where Base: BidirectionalCollection {
   }
 }
 
-// MARK: - Extensions to DifferentiableCollection
-
 //===----------------------------------------------------------------------===//
 // Derivatives
 //===----------------------------------------------------------------------===//
+
 extension DifferentiableRangeReplaceableCollection {
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
@@ -369,7 +376,7 @@ where Index == Int // is there any way to remove this restriction?
       """)
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: +)
   static func _vjpConcatenate<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: Self,
@@ -398,7 +405,7 @@ where Index == Int // is there any way to remove this restriction?
     return (lhs + rhs, pullback)
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: +)
   static func _jvpConcatenate<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: Self,
@@ -440,7 +447,7 @@ where
   
   // isn't there any rule for which order we declare JVP and VJP in? For tgmath,
   // it was JVP then VJP. Here, it's the reverse.
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: append(_:))
   mutating func _vjpAppend(_ element: Element) -> (
     value: Void, pullback: (inout TangentVector) -> Element.TangentVector
@@ -454,7 +461,7 @@ where
     })
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: append(_:))
   mutating func _jvpAppend(_ element: Element) -> (
     value: Void,
@@ -484,7 +491,7 @@ where
       """)
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: +=)
   static func _vjpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
@@ -505,7 +512,7 @@ where
     })
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: +=)
   static func _jvpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
@@ -522,14 +529,9 @@ where
 }
 
 // Might have to comment this out for the time being because of the compiler
-// crash. Thus, we can't merge it because it would remove functionality from
+// error. Thus, we can't merge it because it would remove functionality from
 // Array (a workaround is to copy and paste the old code for Array).
-extension DifferentiableCollection
-where
-  Self: RangeReplaceableCollection,
-  TangentVector: RangeReplaceableCollection,
-  ElementTangentCollection: RangeReplaceableCollection,
-  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>
+extension DifferentiableRangeReplaceableCollection
 {
   @_disfavoredOverload
   public init(repeating: Element, count: Int) {
@@ -539,7 +541,7 @@ where
       """)
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: init(repeating:count:))
   static func _vjpInit(repeating repeatedValue: Element, count: Int) -> (
     value: Self, pullback: (TangentVector) -> Element.TangentVector
@@ -552,7 +554,7 @@ where
     )
   }
   
-  @usableFromInline
+  @usableFromInline // why not make this @inlinable?
   @derivative(of: init(repeating:count:))
   static func _jvpInit(repeating repeatedValue: Element, count: Int) -> (
     value: Self, differential: (Element.TangentVector) -> TangentVector
@@ -561,8 +563,6 @@ where
       value: Self(repeating: repeatedValue, count: count),
       differential: { v in
         TangentVector(repeating: v, count: count)
-        // still can't do this!!!
-//        ElementTangentCollection.TangentVector(repeating: v, count: count)
       }
     )
   }
@@ -576,24 +576,18 @@ where
 // and protocol methods as possible. For now, this hasn't happened yet just so
 // that the existing prototype can be validated and discussed.
 
-extension DifferentiableCollection
+extension DifferentiableRangeReplaceableCollection
 where
-  Self: RangeReplaceableCollection,
-  ElementTangentCollection: RangeReplaceableCollection,
-  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
-  Index == Int
+  Index == Int // could this restriction be removed when changing it to return an array?
 {
   // I probably need to change so that Result is an Array, not just some
   // arbitrary collection. Is this correct?
   @inlinable
   @differentiable(reverse, wrt: self)
-  public func differentiableMap<Result: DifferentiableCollection>(
+  public func differentiableMap<Result: DifferentiableRangeReplaceableCollection>(
     _ body: @differentiable(reverse) (Element) -> Result.Element
   ) -> Result
   where
-    Result: RangeReplaceableCollection,
-    Result.TangentVector: RangeReplaceableCollection,
-    Result.ElementTangentCollection: RangeReplaceableCollection,
     Result.Index == Int
   {
     // try to overload with something more optimized in the case of Array
@@ -608,16 +602,13 @@ where
   // why is the _vjp explicitly internal?
   @inlinable
   @derivative(of: differentiableMap)
-  internal func _vjpDifferentiableMap<Result: DifferentiableCollection>(
+  internal func _vjpDifferentiableMap<Result: DifferentiableRangeReplaceableCollection>(
     _ body: @differentiable(reverse) (Element) -> Result.Element
   ) -> (
     value: Result,
     pullback: (Result.TangentVector) -> TangentVector
   )
   where
-    Result: RangeReplaceableCollection,
-    Result.TangentVector: RangeReplaceableCollection,
-    Result.ElementTangentCollection: RangeReplaceableCollection,
     Result.Index == Int
   {
     var values = Result()
@@ -646,16 +637,13 @@ where
   
   @inlinable
   @derivative(of: differentiableMap)
-  internal func _jvpDifferentiableMap<Result: DifferentiableCollection>(
+  internal func _jvpDifferentiableMap<Result: DifferentiableRangeReplaceableCollection>(
     _ body: @differentiable(reverse) (Element) -> Result.Element
   ) -> (
     value: Result,
     differential: (TangentVector) -> Result.TangentVector
   )
   where
-    Result: RangeReplaceableCollection,
-    Result.TangentVector: RangeReplaceableCollection,
-    Result.ElementTangentCollection: RangeReplaceableCollection,
     Result.Index == Int
   {
     var values = Result()
@@ -683,17 +671,13 @@ where
   }
 }
 
-extension DifferentiableCollection
+extension DifferentiableRangeReplaceableCollection
 where
-  Self: RangeReplaceableCollection & BidirectionalCollection,
-  TangentVector: RangeReplaceableCollection & BidirectionalCollection,
-  ElementTangentCollection: RangeReplaceableCollection &
-    BidirectionalCollection, // should I keep this on the line above for readability?
-  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
+  Self: DifferentiableBidirectionalCollection,
   Index == Int
 {
   @inlinable
-//  @differentiable(reverse, wrt: (self, initialResult))
+  @differentiable(reverse, wrt: (self, initialResult))
   public func differentiableReduce<Result: Differentiable>(
     _ initialResult: Result,
     _ nextPartialResult:
@@ -772,22 +756,18 @@ where
 
 // ContiguousArray conformance
 
+extension ContiguousArray: Differentiable
+where Element: Differentiable & AdditiveArithmetic {}
+
 extension ContiguousArray: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
-  public static var zero: ContiguousArray<Element> {
-    .init()
-  }
+  public static var zero: ContiguousArray<Element> { .init() }
   
   public typealias ElementTangentCollection =
     ContiguousArray<Element.TangentVector>
   
   public typealias TangentVector =
     DifferentiableCollectionView<ElementTangentCollection>
-}
-
-extension ContiguousArray: Differentiable
-where Element: Differentiable & AdditiveArithmetic {
-  
 }
 
 extension ContiguousArray:
@@ -797,39 +777,33 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 // ArraySlice conformance
 
-extension ArraySlice: DifferentiableCollection
-where Element: Differentiable & AdditiveArithmetic {
-  public static var zero: ArraySlice<Element> {
-    .init()
-  }
-  
-  public typealias ElementTangentCollection =
-    ArraySlice<Element.TangentVector>
-  
-  public typealias TangentVector =
-//    ElementTangentCollection.DifferentiableView
-    // this doesn't work:
-    DifferentiableCollectionView<ElementTangentCollection>
-}
-
 extension ArraySlice: Differentiable
 where Element: Differentiable & AdditiveArithmetic {}
+
+extension ArraySlice: DifferentiableCollection
+where Element: Differentiable & AdditiveArithmetic {
+  public static var zero: ArraySlice<Element> { .init() }
+  
+  public typealias ElementTangentCollection = ArraySlice<Element.TangentVector>
+  
+  public typealias TangentVector =
+    DifferentiableCollectionView<ElementTangentCollection>
+}
 
 extension ArraySlice:
   DifferentiableRangeReplaceableCollection,
   DifferentiableBidirectionalCollection
 where Element: Differentiable & AdditiveArithmetic {}
 
-// cannot conform Dictionary to DifferentiableCollection
-// because Element (a tuple) cannot conform to a protocol
-
-// Can't conform Dictionary.Keys because they aren't a `MutableCollection`
-
 // Dictionary.Values conformance
 
+extension Dictionary.Values: Differentiable
+where Element: Differentiable & AdditiveArithmetic,
+ Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure on 5.5.2 */ {}
+
 extension Dictionary.Values: DifferentiableCollection
-where Element: Differentiable & AdditiveArithmetic, // it says conforming this to & AdditiveArithmetic is redundant, but I know it's needed. Any explanation for this faulty diagnostic?
-Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure */ {
+where Element: Differentiable & AdditiveArithmetic,
+Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure on 5.5.2 */ {
   public static var zero: Dictionary.Values {
     Dictionary<Key, Value>().values
   }
@@ -839,10 +813,4 @@ Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning d
 
   public typealias TangentVector =
     DifferentiableCollectionView<ElementTangentCollection>
-}
-
-extension Dictionary.Values: Differentiable
-where Element: Differentiable & AdditiveArithmetic, // it says conforming this to & AdditiveArithmetic is redundant, but I know it's needed. Any explanation for this faulty diagnostic?
- Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure */ {
-
 }
