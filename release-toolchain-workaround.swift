@@ -749,4 +749,33 @@ where
       }
     )
   }
+  
+  @inlinable // why is `wrt:` specified here and not above?
+  @derivative(of: differentiableReduce, wrt: (self, initialResult))
+  func _jvpDifferentiableReduce<Result: Differentiable>(
+    _ initialResult: Result,
+    _ nextPartialResult: @differentiable(reverse) (Result, Element) -> Result
+  ) -> (value: Result,
+        differential: (TangentVector, Result.TangentVector)
+          -> Result.TangentVector) {
+    var differentials:
+      [(Result.TangentVector, Element.TangentVector) -> Result.TangentVector]
+        = []
+    let count = self.count
+    differentials.reserveCapacity(count)
+    var result = initialResult
+    for element in self {
+      let (y, df) =
+        valueWithDifferential(at: result, element, of: nextPartialResult)
+      result = y
+      differentials.append(df)
+    }
+    return (value: result, differential: { dSelf, dInitial in
+      var dResult = dInitial
+      for (dElement, df) in zip(dSelf.base, differentials) {
+        dResult = df(dResult, dElement)
+      }
+      return dResult
+    })
+  }
 }
