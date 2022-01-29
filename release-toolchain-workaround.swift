@@ -433,9 +433,7 @@ where Index == Int // is there any way to remove this restriction?
 }
 
 extension DifferentiableRangeReplaceableCollection
-where
-  Self: DifferentiableBidirectionalCollection,
-  Index == Int
+where Self: DifferentiableBidirectionalCollection
 {
   @_disfavoredOverload
   public mutating func append(_ newElement: Element) {
@@ -450,12 +448,10 @@ where
   mutating func _vjpAppend(_ element: Element) -> (
     value: Void, pullback: (inout TangentVector) -> Element.TangentVector
   ) {
-    let appendedElementIndex = count
+    // I removed the call to extract `count` here.
     append(element)
     return ((), { v in
-      // can't we just use popLast() to remove the restriction that Index == Int?
-      defer { v.removeLast() }
-      return v[appendedElementIndex]
+      v.popLast()! // implicitly unwrapping the optional is the only way to prevent the restriction that `Index == Int`. Plus, this is the same behavior as the previous implementation.
     })
   }
   
@@ -476,12 +472,13 @@ where
   // unless they just conform select methods
   
   @_disfavoredOverload
-  public static func += <Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
+  public static func += <Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: inout Self,
     rhs: Other
   )
   where
-    Element == Other.Element
+    Element == Other.Element,
+    Other: DifferentiableBidirectionalCollection
   {
     fatalError("""
       \(Self.self) must override the default implementation of `append(_:)` \
@@ -491,14 +488,15 @@ where
   
   @inlinable
   @derivative(of: +=)
-  static func _vjpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
+  static func _vjpAppend<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: inout Self,
     _ rhs: Other
   ) -> (
     value: Void, pullback: (inout TangentVector) -> Other.TangentVector
   )
   where
-    Element == Other.Element
+    Element == Other.Element,
+    Other: DifferentiableBidirectionalCollection
   {
     let lhsCount = lhs.count
     lhs += rhs
@@ -516,21 +514,16 @@ where
     _ lhs: inout Self,
     _ rhs: Other
   ) -> (
-    value: Void, differential: (inout TangentVector, Other.TangentVector) -> Void
+    value: Void,
+    differential: (inout TangentVector, Other.TangentVector) -> Void
   )
-  where
-    Element == Other.Element
-  {
+  where Element == Other.Element /* TODO: fix generic signature declaration to match */ {
     lhs += rhs
     return ((), { $0 += $1 })
   }
 }
 
-// Might have to comment this out for the time being because of the compiler
-// error. Thus, we can't merge it because it would remove functionality from
-// Array (a workaround is to copy and paste the old code for Array).
-extension DifferentiableRangeReplaceableCollection
-{
+extension DifferentiableRangeReplaceableCollection {
   @_disfavoredOverload
   public init(repeating: Element, count: Int) {
     fatalError("""
@@ -566,10 +559,10 @@ extension DifferentiableRangeReplaceableCollection
   }
 }
 
-
 //===----------------------------------------------------------------------===//
 // Differentiable higher order functions for collections
 //===----------------------------------------------------------------------===//
+
 // we need to extend differentiability to as many stdlib collection protocols
 // and protocol methods as possible. For now, this hasn't happened yet just so
 // that the existing prototype can be validated and discussed.
@@ -583,7 +576,7 @@ extension DifferentiableRangeReplaceableCollection {
     map(body)
   }
   
-  @inlinable // why can't this be @usableFromInline?
+  @inlinable
   @derivative(of: differentiableMap)
   func _vjpDifferentiableMap<Result: Differentiable>(
     _ body: @differentiable(reverse) (Element) -> Result
@@ -602,14 +595,16 @@ extension DifferentiableRangeReplaceableCollection {
     }
     func pullback(_ tans: Array<Result>.TangentVector) -> TangentVector {
       // TODO: Right now, it uses the old Array.DifferentiableView because it
-      // relies on my Differentiation module. In the final form, all instances of
-      // Array.DifferentiableView.base will remove `.base`.
+      // relies on my Differentiation module. In the final form, we will remove
+      // `.base` from `tans.base`.
+      // TODO: conform Array to Differentiable and have it override the existing
+      // implementation in the stdlib
       .init(zip(tans.base, pullbacks).map { tan, pb in pb(tan) })
     }
     return (value: values, pullback: pullback)
   }
   
-  @inlinable // why can't this be @usableFromInline?
+  @inlinable
   @derivative(of: differentiableMap)
   func _jvpDifferentiableMap<Result: Differentiable>(
     _ body: @differentiable(reverse) (Element) -> Result
@@ -627,17 +622,14 @@ extension DifferentiableRangeReplaceableCollection {
       differentials.append(df)
     }
     func differential(_ tans: TangentVector) -> Array<Result>.TangentVector {
-      .init(zip(tans.base, differentials).map { tan, df in df(tan) })
+      .init(zip(tans, differentials).map { tan, df in df(tan) })
     }
     return (value: values, differential: differential)
   }
 }
 
 extension DifferentiableRangeReplaceableCollection
-where
-  Self: DifferentiableBidirectionalCollection,
-  Index == Int
-{
+where Self: DifferentiableBidirectionalCollection {
   @inlinable
   @differentiable(reverse, wrt: (self, initialResult))
   public func differentiableReduce<Result: Differentiable>(
@@ -648,7 +640,7 @@ where
     reduce(initialResult, nextPartialResult)
   }
   
-  @inlinable // why can't this be @usableFromInline?
+  @inlinable
   @derivative(of: differentiableReduce)
   func _vjpDifferentiableReduce<Result: Differentiable>(
     _ initialResult: Result,
@@ -662,7 +654,7 @@ where
       [(Result.TangentVector) -> (Result.TangentVector, Element.TangentVector)] =
         []
     let count = self.count
-    pullbacks.reserveCapacity(count) // then shouldn't we have this optimization on differentiableMap?
+    pullbacks.reserveCapacity(count)
     var result = initialResult
     for element in self {
       let (y, pb) =
@@ -675,29 +667,29 @@ where
       pullback: { tangent in
         var resultTangent = tangent
         var elementTangents = TangentVector.zero
-        elementTangents.base.reserveCapacity(count)
+        elementTangents.reserveCapacity(count)
         for pullback in pullbacks.reversed() {
           let (newResultTangent, elementTangent) = pullback(resultTangent)
           resultTangent = newResultTangent
-          elementTangents.base.append(elementTangent)
+          elementTangents.append(elementTangent)
         }
-        return (TangentVector(elementTangents.base.reversed()), resultTangent)
+        return (TangentVector(elementTangents.reversed()), resultTangent)
       }
     )
   }
   
-  @inlinable // why can't this be @usableFromInline?
+  @inlinable
   @derivative(of: differentiableReduce)
   func _jvpDifferentiableReduce<Result: Differentiable>(
     _ initialResult: Result,
     _ nextPartialResult: @differentiable(reverse) (Result, Element) -> Result
-  ) -> (value: Result,
-        differential: (TangentVector, Result.TangentVector)
-          -> Result.TangentVector) {
+  ) -> (
+    value: Result,
+    differential: (TangentVector, Result.TangentVector) -> Result.TangentVector)
+  {
     var differentials:
-      [(Result.TangentVector, Element.TangentVector) -> Result.TangentVector]
-        = []
-    let count = self.count
+      [(Result.TangentVector, Element.TangentVector) -> Result.TangentVector] =
+        []
     differentials.reserveCapacity(count)
     var result = initialResult
     for element in self {
@@ -708,7 +700,7 @@ where
     }
     return (value: result, differential: { dSelf, dInitial in
       var dResult = dInitial
-      for (dElement, df) in zip(dSelf.base, differentials) {
+      for (dElement, df) in zip(dSelf, differentials) {
         dResult = df(dResult, dElement)
       }
       return dResult
@@ -723,6 +715,7 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 extension ContiguousArray: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
+  @inlinable
   public static var zero: ContiguousArray<Element> { .init() }
   
   public typealias ElementTangentCollection =
@@ -744,6 +737,7 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 extension ArraySlice: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
+  @inlinable
   public static var zero: ArraySlice<Element> { .init() }
   
   public typealias ElementTangentCollection = ArraySlice<Element.TangentVector>
@@ -766,6 +760,7 @@ where Element: Differentiable & AdditiveArithmetic,
 extension Dictionary.Values: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic,
 Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure on 5.5.2 */ {
+  @inlinable
   public static var zero: Dictionary.Values {
     Dictionary<Key, Value>().values
   }
