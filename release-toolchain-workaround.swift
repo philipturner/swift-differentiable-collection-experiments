@@ -580,92 +580,56 @@ extension DifferentiableRangeReplaceableCollection
 where
   Index == Int // could this restriction be removed when changing it to return an array?
 {
-  // I probably need to change so that Result is an Array, not just some
-  // arbitrary collection. Is this correct?
   @inlinable
   @differentiable(reverse, wrt: self)
-  public func differentiableMap<Result: DifferentiableRangeReplaceableCollection>(
-    _ body: @differentiable(reverse) (Element) -> Result.Element
-  ) -> Result
-  where
-    Result.Index == Int
-  {
-    // try to overload with something more optimized in the case of Array
-//    map(body)
-    var output = Result()
-    for element in self {
-      output.append(body(element))
-    }
-    return output
+  public func differentiableMap<Result: Differentiable>(
+    _ body: @differentiable(reverse) (Element) -> Result
+  ) -> [Result] {
+    map(body)
   }
   
-  // why is the _vjp explicitly internal?
-  @inlinable
+  @inlinable // why can't this be @usableFromInline?
   @derivative(of: differentiableMap)
-  internal func _vjpDifferentiableMap<Result: DifferentiableRangeReplaceableCollection>(
-    _ body: @differentiable(reverse) (Element) -> Result.Element
+  func _vjpDifferentiableMap<Result: Differentiable>(
+    _ body: @differentiable(reverse) (Element) -> Result
   ) -> (
-    value: Result,
-    pullback: (Result.TangentVector) -> TangentVector
-  )
-  where
-    Result.Index == Int
-  {
-    var values = Result()
-    var pullbacks: [(Result.Element.TangentVector) -> Element.TangentVector] = []
+    value: [Result],
+    pullback: (Array<Result>.TangentVector) -> TangentVector
+  ) {
+    var values: [Result] = []
+    values.reserveCapacity(count)
+    var pullbacks: [(Result.TangentVector) -> Element.TangentVector] = []
+    pullbacks.reserveCapacity(count)
     for x in self {
       let (y, pb) = valueWithPullback(at: x, of: body)
       values.append(y)
       pullbacks.append(pb)
     }
-    func pullback(_ tans: Result.TangentVector) -> TangentVector {
-      // try to overload with something more optimized in the case of Array
-      //map(body)
-      var output = ElementTangentCollection()
-      for i in tans.indices {
-        output.append(pullbacks[i](tans[i]))
-      }
-      return ElementTangentCollection.DifferentiableView(output)
+    func pullback(_ tans: Array<Result>.TangentVector) -> TangentVector {
+      .init(zip(tans.base, pullbacks).map { tan, pb in pb(tan) })
     }
     return (value: values, pullback: pullback)
   }
-
-//   why is the _jvp explicitly internal?
-//  @inlinable
-//  @derivative(of: differentiableMap)
-//  internal func _jvpDifferentiableMap<Result: Diff
   
-  @inlinable
+  @inlinable // why can't this be @usableFromInline?
   @derivative(of: differentiableMap)
-  internal func _jvpDifferentiableMap<Result: DifferentiableRangeReplaceableCollection>(
-    _ body: @differentiable(reverse) (Element) -> Result.Element
+  func _jvpDifferentiableMap<Result: Differentiable>(
+    _ body: @differentiable(reverse) (Element) -> Result
   ) -> (
-    value: Result,
-    differential: (TangentVector) -> Result.TangentVector
-  )
-  where
-    Result.Index == Int
-  {
-    var values = Result()
-    var differentials: [(Element.TangentVector) -> Result.Element.TangentVector] = []
+    value: [Result],
+    differential: (TangentVector) -> Array<Result>.TangentVector
+  ) {
+    var values: [Result] = []
+    values.reserveCapacity(count)
+    var differentials: [(Element.TangentVector) -> Result.TangentVector] = []
+    values.reserveCapacity(count)
     for x in self {
       let (y, df) = valueWithDifferential(at: x, of: body)
       values.append(y)
       differentials.append(df)
     }
-    func differential(_ tans: TangentVector) -> Result.TangentVector {
-      // the line below should not compile, yet it does. That means the compiler
-      // is assuming `Result` is an `Array` even though that isn't true, right?
-//      .init(zip(tans.base, differentials).map { tan, df in df(tan) })
-      
-      // try to overload with something more optimized in the case of Array
-      //map(body)
-      
-      var output = Result.ElementTangentCollection()
-      for i in tans.indices {
-        output.append(differentials[i](tans[i]))
-      }
-      return Result.ElementTangentCollection.DifferentiableView(output)
+    func differential(_ tans: TangentVector) -> Array<Result>.TangentVector {
+      .init(zip(tans.base, differentials).map { tan, df in df(tan) })
     }
     return (value: values, differential: differential)
   }
@@ -686,9 +650,9 @@ where
     reduce(initialResult, nextPartialResult)
   }
   
-  @inlinable
+  @inlinable // why can't this be @usableFromInline?
   @derivative(of: differentiableReduce)
-  internal func _vjpDifferentiableReduce<Result: Differentiable>(
+  func _vjpDifferentiableReduce<Result: Differentiable>(
     _ initialResult: Result,
     _ nextPartialResult: @differentiable(reverse) (Result, Element) -> Result
   ) -> (
@@ -724,8 +688,8 @@ where
     )
   }
   
-  @inlinable // why is `wrt:` specified here and not above?
-  @derivative(of: differentiableReduce, wrt: (self, initialResult))
+  @inlinable // why can't this be @usableFromInline?
+  @derivative(of: differentiableReduce)
   func _jvpDifferentiableReduce<Result: Differentiable>(
     _ initialResult: Result,
     _ nextPartialResult: @differentiable(reverse) (Result, Element) -> Result
