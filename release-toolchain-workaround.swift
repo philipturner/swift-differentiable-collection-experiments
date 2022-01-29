@@ -303,7 +303,7 @@ extension DifferentiableRangeReplaceableCollection {
   }
   
   @usableFromInline
-  @derivative(of: subscript(_:).get)
+  @derivative(of: subscript.get)
   func _vjpSubscript(index: Index) -> (
     value: Element, pullback: (Element.TangentVector) -> TangentVector
   ) {
@@ -319,8 +319,10 @@ extension DifferentiableRangeReplaceableCollection {
     return (self[index], pullback)
   }
   
+  // TODO: add derivative of subscript._modify once that's supported
+  
   @usableFromInline
-  @derivative(of: subscript(_:).get)
+  @derivative(of: subscript.get)
   func _jvpSubscript(index: Index) -> (
     value: Element, differential: (TangentVector) -> Element.TangentVector
   ) {
@@ -329,14 +331,12 @@ extension DifferentiableRangeReplaceableCollection {
     }
     return (self[index], differential)
   }
+  
+  // TODO: add derivative of subscript._modify once that's supported
 }
 
-extension DifferentiableCollection
-where
-  Self: RangeReplaceableCollection,
-  TangentVector: RangeReplaceableCollection,
-  ElementTangentCollection: RangeReplaceableCollection,
-  Index == Int // is there any way to remove this restriction?
+extension DifferentiableRangeReplaceableCollection
+where Index == Int // is there any way to remove this restriction?
 {
   // We shouldn't need to duplicate this code for the generic signature
   // permutation `(lhs: Other, rhs: Self)` because `lhs` also conforms to
@@ -356,14 +356,12 @@ where
   
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
-  public static func + <Other: DifferentiableCollection>(
+  public static func + <Other: DifferentiableRangeReplaceableCollection>(
     lhs: Self,
     rhs: Other
   ) -> Self
   where
-    Element == Other.Element,
-    Other: RangeReplaceableCollection,
-    Other.TangentVector: RangeReplaceableCollection
+    Element == Other.Element
   {
     fatalError("""
       \(Self.self) must override the default implementation of `+ (lhs:rhs:)` \
@@ -373,7 +371,7 @@ where
   
   @usableFromInline
   @derivative(of: +)
-  static func _vjpConcatenate<Other: DifferentiableCollection>(
+  static func _vjpConcatenate<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: Self,
     _ rhs: Other
   ) -> (
@@ -381,9 +379,7 @@ where
     pullback: (TangentVector) -> (TangentVector, Other.TangentVector)
   )
   where
-    Element == Other.Element,
-    Other: RangeReplaceableCollection,
-    Other.TangentVector: RangeReplaceableCollection
+    Element == Other.Element
   {
     func pullback(_ v: TangentVector) -> (TangentVector, Other.TangentVector) {
       if v.isEmpty {
@@ -395,16 +391,16 @@ where
           sum of operand counts \(lhs.count) and \(rhs.count)
           """)
       return (
-        ElementTangentCollection.DifferentiableView(.init(v[..<lhs.count])),
-        ElementTangentCollection.DifferentiableView(.init(v[lhs.count...]))
-      ) as! (TangentVector, Other.TangentVector)
+        TangentVector(.init(v[..<lhs.count])),
+        Other.TangentVector(.init(v[lhs.count...]))
+      )
     }
     return (lhs + rhs, pullback)
   }
   
   @usableFromInline
   @derivative(of: +)
-  static func _jvpConcatenate<Other: DifferentiableCollection>(
+  static func _jvpConcatenate<Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: Self,
     _ rhs: Other
   ) -> (
@@ -412,9 +408,7 @@ where
     differential: (TangentVector, Other.TangentVector) -> TangentVector
   )
   where
-    Element == Other.Element,
-    Other: RangeReplaceableCollection,
-    Other.TangentVector: RangeReplaceableCollection
+    Element == Other.Element
   {
     func differential(
       _ l: TangentVector,
@@ -425,20 +419,15 @@ where
           Tangent vectors with invalid count; expected to equal the operand \
           counts \(lhs.count) and \(rhs.count)
           """)
-      // could use `TangentVector` instead, but doing this to ensure type
-      // system integrity
-      return ElementTangentCollection.DifferentiableView(l + r)
+      return TangentVector(l + r)
     }
     return (lhs + rhs, differential)
   }
 }
 
-extension DifferentiableCollection
+extension DifferentiableRangeReplaceableCollection
 where
-  Self: RangeReplaceableCollection & BidirectionalCollection,
-  TangentVector: RangeReplaceableCollection & BidirectionalCollection,
-  ElementTangentCollection: RangeReplaceableCollection &
-    BidirectionalCollection, // should I keep this on the line above for readability?
+  Self: DifferentiableBidirectionalCollection,
   Index == Int
 {
   @_disfavoredOverload
@@ -482,16 +471,12 @@ where
   // unless they just conform select methods
   
   @_disfavoredOverload
-  public static func += <Other: DifferentiableCollection>(
+  public static func += <Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
     rhs: Other
   )
   where
-    Element == Other.Element,
-    Other: RangeReplaceableCollection & BidirectionalCollection,
-    Other.TangentVector: RangeReplaceableCollection & BidirectionalCollection,
-    Other.ElementTangentCollection: RangeReplaceableCollection &
-      BidirectionalCollection
+    Element == Other.Element
   {
     fatalError("""
       \(Self.self) must override the default implementation of `append(_:)` \
@@ -501,25 +486,19 @@ where
   
   @usableFromInline
   @derivative(of: +=)
-  static func _vjpAppend<Other: DifferentiableCollection>(
+  static func _vjpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
     _ rhs: Other
   ) -> (
     value: Void, pullback: (inout TangentVector) -> Other.TangentVector
   )
   where
-    Element == Other.Element,
-    Other: RangeReplaceableCollection & BidirectionalCollection,
-    Other.TangentVector: RangeReplaceableCollection & BidirectionalCollection,
-    Other.ElementTangentCollection: RangeReplaceableCollection &
-      BidirectionalCollection
+    Element == Other.Element
   {
     let lhsCount = lhs.count
     lhs += rhs
     return ((), { v -> Other.TangentVector in
       let drhs = Other.TangentVector(.init(v.dropFirst(lhsCount)))
-      // the below line still isn't possible!!!
-//      let drhs = Other.ElementTangentCollection.DifferentiableView(.init(v.dropFirst(lhsCount)))
       let rhsCount = drhs.count
       v.removeLast(rhsCount)
       return drhs
@@ -528,18 +507,14 @@ where
   
   @usableFromInline
   @derivative(of: +=)
-  static func _jvpAppend<Other: DifferentiableCollection>(
+  static func _jvpAppend<Other: DifferentiableRangeReplaceableCollection & DifferentiableBidirectionalCollection>(
     _ lhs: inout Self,
     _ rhs: Other
   ) -> (
     value: Void, differential: (inout TangentVector, Other.TangentVector) -> Void
   )
   where
-    Element == Other.Element,
-    Other: RangeReplaceableCollection & BidirectionalCollection,
-    Other.TangentVector: RangeReplaceableCollection & BidirectionalCollection,
-    Other.ElementTangentCollection: RangeReplaceableCollection &
-      BidirectionalCollection
+    Element == Other.Element
   {
     lhs += rhs
     return ((), { $0 += $1 })
