@@ -44,6 +44,7 @@ extension DifferentiableCollection {
   // TODO: - the above documentation isn't 100% appropriate because
   // declaration of `TangentVector` has been moved outside of this block of code
   
+  @inlinable // IDK if this is a good idea
   public mutating func move(by offset: TangentVector) {
     var view = DifferentiableView(self)
     view.move(by: offset)
@@ -54,16 +55,15 @@ extension DifferentiableCollection {
 public protocol DifferentiableCollectionViewProtocol: DifferentiableCollection {
   associatedtype Base: DifferentiableCollection
   
-  @differentiable(reverse)
   var base: Base { get set }
   
-  @differentiable(reverse)
   init(_ base: Base)
 }
 
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: DifferentiableCollectionViewProtocol {
   public typealias ElementTangentCollection = Base.ElementTangentCollection
   
+  @usableFromInline // IDK if this is a good idea
   var _base: Base
 }
 
@@ -71,26 +71,34 @@ extension DifferentiableCollectionView: DifferentiableCollection {
   public typealias Element = Base.Element
   public typealias Index = Base.Index
   
+  @inlinable // IDK if this is a good idea
   public subscript(position: Index) -> Element {
-    _read {
+    get {
       if position < endIndex {
-        yield base[position]
+        return base[position]
       } else {
-        yield Element.zero
+        return Element.zero
       }
     }
-    set {
+    _modify {
       if position < endIndex {
-        base[position] = newValue
+        yield &base[position]
+      } else {
+        var zero = Element.zero
+        yield &zero
       }
     }
   }
   
+  @inlinable // IDK if this is a good idea
   public func index(after i: Index) -> Index {
     base.index(after: i)
   }
   
+  @inlinable // IDK if this is a good idea
   public var startIndex: Index { base.startIndex }
+
+  @inlinable // IDK if this is a good idea
   public var endIndex: Index { base.endIndex }
 }
 
@@ -98,6 +106,7 @@ extension DifferentiableCollectionView: DifferentiableCollection {
 
 extension DifferentiableCollectionView: Differentiable {
   /// The viewed array.
+  @inlinable // IDK if this is a good idea
   public var base: Base {
     get { _base } // why can't we use `_read` here?
     _modify { yield &_base }
@@ -123,7 +132,7 @@ extension DifferentiableCollectionView: Differentiable {
   // or make a derivative or base.set - is that a valid solution?
   
   /// Creates a differentiable view of the given array.
-  @differentiable(reverse)
+  @inlinable // IDK if this is a good idea
   public init(_ base: Base) {
     _base = base
   }
@@ -146,6 +155,7 @@ extension DifferentiableCollectionView: Differentiable {
   
   public typealias TangentVector = Base.TangentVector
   
+  @inlinable // IDK if this is a good idea
   public mutating func move(by offset: TangentVector) {
     if offset.isEmpty {
       return
@@ -163,6 +173,7 @@ extension DifferentiableCollectionView: Differentiable {
 
 extension DifferentiableCollectionView: Equatable
 where Element: Equatable {
+  @inlinable // IDK if this is a good idea
   public static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.elementsEqual(rhs)
   }
@@ -170,6 +181,7 @@ where Element: Equatable {
 
 extension DifferentiableCollectionView: ExpressibleByArrayLiteral
 where Base: RangeReplaceableCollection {
+  @inlinable // IDK if this is a good idea
   public init(arrayLiteral elements: Element...) {
     self.init(Base(elements))
   }
@@ -178,6 +190,7 @@ where Base: RangeReplaceableCollection {
 // why is there only conformance for CustomStringConvertible and not CustomDebugStringConvertible or CustomReflectable?
 extension DifferentiableCollectionView: CustomStringConvertible
 where Base: CustomStringConvertible {
+  @inlinable // IDK if this is a good idea
   public var description: String { base.description }
 }
 
@@ -187,18 +200,20 @@ where Base: CustomStringConvertible {
 /// of all counts.
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
+  @inlinable // IDK if this is a good idea
   public static var zero: Self { .init(Base.zero) }
   
+  @inlinable // IDK if this is a good idea
   public static func + (lhs: Self, rhs: Self) -> Self {
-    if lhs.base.count == 0 {
+    if lhs.count == 0 {
       return rhs
     }
-    if rhs.base.count == 0 {
+    if rhs.count == 0 {
       return lhs
     }
     precondition(
-      lhs.base.count == rhs.base.count,
-      "Count mismatch: \(lhs.base.count) and \(rhs.base.count)")
+      lhs.count == rhs.count,
+      "Count mismatch: \(lhs.count) and \(rhs.count)")
     var sum = lhs
     for i in lhs.base.indices {
       sum[i] += rhs[i]
@@ -206,18 +221,19 @@ where Element: AdditiveArithmetic {
     return sum
   }
   
+  @inlinable // IDK if this is a good idea
   public static func - (lhs: Self, rhs: Self) -> Self {
-    if lhs.base.count == 0 {
+    if lhs.count == 0 {
       return rhs
     }
-    if rhs.base.count == 0 {
+    if rhs.count == 0 {
       return lhs
     }
     precondition(
-      lhs.base.count == rhs.base.count,
-      "Count mismatch: \(lhs.base.count) and \(rhs.base.count)")
+      lhs.count == rhs.count,
+      "Count mismatch: \(lhs.count) and \(rhs.count)")
     var difference = lhs
-    for i in lhs.base.indices {
+    for i in lhs.indices {
       difference[i] -= rhs[i]
     }
     return difference
@@ -328,7 +344,7 @@ extension DifferentiableRangeReplaceableCollection {
   }
   
   // TODO(SR-14113): add derivative of subscript._modify once that's supported
-  // or make a derivative or base.set - is that a valid solution?
+  // or make a derivative or subscript.set - is that a valid solution?
 }
 
 extension DifferentiableRangeReplaceableCollection
