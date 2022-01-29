@@ -593,6 +593,8 @@ where
   ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
   Index == Int
 {
+  // I probably need to change so that Result is an Array, not just some
+  // arbitrary collection. Is this correct?
   @inlinable
   @differentiable(reverse, wrt: self)
   public func differentiableMap<Result: DifferentiableCollection>(
@@ -787,9 +789,36 @@ where Element: Differentiable & AdditiveArithmetic {
   public typealias ElementTangentCollection =
     ContiguousArray<Element.TangentVector>
   
-  public typealias TangentVector = DifferentiableCollectionView<ElementTangentCollection>
+  public typealias TangentVector =
+    DifferentiableCollectionView<ElementTangentCollection>
 }
 
-extension ContiguousArray: Differentiable where Element: Differentiable & AdditiveArithmetic {
+extension ContiguousArray: Differentiable
+where Element: Differentiable & AdditiveArithmetic {
   
 }
+
+extension ArraySlice: DifferentiableCollection
+where Element: Differentiable & AdditiveArithmetic {
+  public static var zero: ArraySlice<Element> {
+    .init()
+  }
+  
+  public typealias ElementTangentCollection =
+    ArraySlice<Element.TangentVector>
+  
+  public typealias TangentVector =
+    ElementTangentCollection.DifferentiableView
+    // this doesn't work:
+    //DifferentiableCollectionView<ElementTangentCollection>
+}
+
+extension ArraySlice: Differentiable
+where Element: Differentiable & AdditiveArithmetic {
+  
+}
+
+// cannot conform Dictionary to DifferentiableCollection
+// because Element (a tuple) cannot conform to a protocol
+
+// any other kinds of collections that aren't a RangeReplaceableCollection?
