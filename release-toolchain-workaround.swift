@@ -246,25 +246,21 @@ public protocol DifferentiableRangeReplaceableCollection:
   DifferentiableCollection, RangeReplaceableCollection
 where
   TangentVector: RangeReplaceableCollection,
-  ElementTangentCollection: RangeReplaceableCollection
-{
-  
-}
+  ElementTangentCollection: RangeReplaceableCollection {}
 
 extension DifferentiableCollectionView: RangeReplaceableCollection
 where Base: RangeReplaceableCollection {
+  @inlinable // IDK if this is a good idea
   public init() {
     self.init(Base.zero)
   }
   
-  public subscript(position: Index) -> Element {
-    get { base[position] }
-  }
-  
+  @inlinable // IDK if this is a good idea
   public subscript(bounds: Range<Index>) -> Base.SubSequence {
     get { base[bounds] }
   }
   
+  @inlinable // IDK if this is a good idea
   public mutating func replaceSubrange<C>(
     _ subrange: Range<Base.Index>,
     with newElements: C
@@ -279,13 +275,11 @@ public protocol DifferentiableBidirectionalCollection:
   DifferentiableCollection, BidirectionalCollection
 where
   TangentVector: BidirectionalCollection,
-  ElementTangentCollection: BidirectionalCollection
-{
-  
-}
+  ElementTangentCollection: BidirectionalCollection {}
 
 extension DifferentiableCollectionView: BidirectionalCollection
 where Base: BidirectionalCollection {
+  @inlinable // IDK if this is a good idea
   public func index(before i: Index) -> Index {
     base.index(before: i)
   }
@@ -347,9 +341,7 @@ extension DifferentiableRangeReplaceableCollection {
   // or make a derivative or subscript.set - is that a valid solution?
 }
 
-extension DifferentiableRangeReplaceableCollection
-where Index == Int // is there any way to remove this restriction?
-{
+extension DifferentiableRangeReplaceableCollection {
   // We shouldn't need to duplicate this code for the generic signature
   // permutation `(lhs: Other, rhs: Self)` because `lhs` also conforms to
   // DifferentiableCollection and thus the signature would be `(lhs: Self,
@@ -372,9 +364,7 @@ where Index == Int // is there any way to remove this restriction?
     lhs: Self,
     rhs: Other
   ) -> Self
-  where
-    Element == Other.Element
-  {
+  where Element == Other.Element {
     fatalError("""
       This should never happen. \
       \(Self.self) must override the default implementation of `+ (lhs:rhs:)` \
@@ -391,9 +381,7 @@ where Index == Int // is there any way to remove this restriction?
     value: Self,
     pullback: (TangentVector) -> (TangentVector, Other.TangentVector)
   )
-  where
-    Element == Other.Element
-  {
+  where Element == Other.Element {
     func pullback(_ v: TangentVector) -> (TangentVector, Other.TangentVector) {
       if v.isEmpty {
         return (.zero, .zero)
@@ -404,8 +392,8 @@ where Index == Int // is there any way to remove this restriction?
           sum of operand counts \(lhs.count) and \(rhs.count)
           """)
       return (
-        TangentVector(.init(v[..<lhs.count])),
-        Other.TangentVector(.init(v[lhs.count...]))
+        TangentVector(.init(v[..<lhs.endIndex])),
+        Other.TangentVector(.init(v[lhs.endIndex...]))
       )
     }
     return (lhs + rhs, pullback)
@@ -420,9 +408,7 @@ where Index == Int // is there any way to remove this restriction?
     value: Self,
     differential: (TangentVector, Other.TangentVector) -> TangentVector
   )
-  where
-    Element == Other.Element
-  {
+  where Element == Other.Element {
     func differential(
       _ l: TangentVector,
       _ r: Other.TangentVector
@@ -438,9 +424,11 @@ where Index == Int // is there any way to remove this restriction?
   }
 }
 
+// could be the other way around; extending Diff...Bidirectional... when Self
+// is Diff...RangeReplaceable. The alternative is a clunky
+// Diff...RangeReplaceable...Bidirectional... protocol. What should I do?
 extension DifferentiableRangeReplaceableCollection
-where Self: DifferentiableBidirectionalCollection
-{
+where Self: DifferentiableBidirectionalCollection {
   @_disfavoredOverload
   public mutating func append(_ newElement: Element) {
     fatalError("""
@@ -455,10 +443,12 @@ where Self: DifferentiableBidirectionalCollection
   mutating func _vjpAppend(_ element: Element) -> (
     value: Void, pullback: (inout TangentVector) -> Element.TangentVector
   ) {
-    // I removed the call to extract `count` here.
     append(element)
     return ((), { v in
-      v.popLast()! // implicitly unwrapping the optional is the only way to prevent the restriction that `Index == Int`. Plus, this is the same behavior as the previous implementation.
+      guard let lastElement = v.popLast() else {
+        fatalError("This should never happen.") // should I put something else here?
+      }
+      return lastElement
     })
   }
   
@@ -632,6 +622,9 @@ extension DifferentiableRangeReplaceableCollection {
   }
 }
 
+// could be the other way around; extending Diff...Bidirectional... when Self
+// is Diff...RangeReplaceable. The alternative is a clunky
+// Diff...RangeReplaceable...Bidirectional... protocol. What should I do?
 extension DifferentiableRangeReplaceableCollection
 where Self: DifferentiableBidirectionalCollection {
   @inlinable
