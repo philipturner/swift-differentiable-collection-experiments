@@ -16,7 +16,8 @@ where
   Element: Differentiable & AdditiveArithmetic,
   Element.TangentVector == TangentVector.Element,
   Index == TangentVector.Index,
-  TangentVector == ElementTangentCollection.DifferentiableView
+  TangentVector == ElementTangentCollection.DifferentiableView,
+  TangentVector.Base == ElementTangentCollection
 {
   associatedtype ElementTangentCollection: DifferentiableCollection
   where ElementTangentCollection.Element == Element.TangentVector
@@ -51,6 +52,10 @@ extension DifferentiableCollection {
 
 public protocol DifferentiableCollectionViewProtocol: DifferentiableCollection {
   associatedtype Base: DifferentiableCollection
+  
+  var base: Base { get set }
+  
+  init(_ base: Base)
 }
 
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: DifferentiableCollectionViewProtocol {
@@ -632,8 +637,9 @@ where
       for i in tans.indices {
         output.append(pullbacks[i](tans[i]))
       }
-      return ElementTangentCollection.DifferentiableView(output)
-        as! TangentVector
+      return TangentVector(output)
+//      return ElementTangentCollection.DifferentiableView(output)
+//        as! TangentVector
     }
     return (value: values, pullback: pullback)
   }
