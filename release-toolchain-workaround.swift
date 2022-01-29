@@ -607,7 +607,7 @@ where
     Result.Index == Int
   {
     // try to overload with something more optimized in the case of Array
-    //map(body)
+//    map(body)
     var output = Result()
     for element in self {
       output.append(body(element))
@@ -690,5 +690,63 @@ where
       return Result.ElementTangentCollection.DifferentiableView(output)
     }
     return (value: values, differential: differential)
+  }
+}
+
+extension DifferentiableCollection
+where
+  Self: RangeReplaceableCollection & BidirectionalCollection,
+  TangentVector: RangeReplaceableCollection & BidirectionalCollection,
+  ElementTangentCollection: RangeReplaceableCollection &
+    BidirectionalCollection, // should I keep this on the line above for readability?
+  ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
+  Index == Int
+{
+  @inlinable
+//  @differentiable(reverse, wrt: (self, initialResult))
+  public func differentiableReduce<Result: Differentiable>(
+    _ initialResult: Result,
+    _ nextPartialResult:
+      @differentiable(reverse) (Result, Element) -> Result
+  ) -> Result {
+    reduce(initialResult, nextPartialResult)
+  }
+  
+  @inlinable
+  @derivative(of: differentiableReduce)
+  internal func _vjpDifferentiableReduce<Result: Differentiable>(
+    _ initialResult: Result,
+    _ nextPartialResult: @differentiable(reverse) (Result, Element) -> Result
+  ) -> (
+    value: Result,
+    pullback: (Result.TangentVector)
+      -> (TangentVector, Result.TangentVector)
+  ) {
+    var pullbacks:
+      [(Result.TangentVector) -> (Result.TangentVector, Element.TangentVector)] =
+        []
+    let count = self.count
+    pullbacks.reserveCapacity(count) // then shouldn't we have this optimization on differentiableMap?
+    var result = initialResult
+    for element in self {
+      let (y, pb) =
+        valueWithPullback(at: result, element, of: nextPartialResult)
+      result = y
+      pullbacks.append(pb)
+    }
+    return (
+      value: result,
+      pullback: { tangent in
+        var resultTangent = tangent
+        var elementTangents = TangentVector.zero
+        elementTangents.base.reserveCapacity(count)
+        for pullback in pullbacks.reversed() {
+          let (newResultTangent, elementTangent) = pullback(resultTangent)
+          resultTangent = newResultTangent
+          elementTangents.base.append(elementTangent)
+        }
+        return (TangentVector(elementTangents.base.reversed()), resultTangent)
+      }
+    )
   }
 }
