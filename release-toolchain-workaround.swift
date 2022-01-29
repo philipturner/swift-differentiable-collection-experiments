@@ -317,6 +317,7 @@ where
 extension DifferentiableCollection
 where
   Self: RangeReplaceableCollection,
+  TangentVector: RangeReplaceableCollection,
   ElementTangentCollection: RangeReplaceableCollection,
   ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>,
   Index == Int // is there any way to remove this restriction?
@@ -408,8 +409,9 @@ where
           Tangent vectors with invalid count; expected to equal the operand \
           counts \(lhs.count) and \(rhs.count)
           """)
+      // could use `TangentVector` instead, but doing this to ensure type
+      // system integrity
       return ElementTangentCollection.DifferentiableView(l + r)
-        as! Self.TangentVector
     }
     return (lhs + rhs, differential)
   }
@@ -499,9 +501,10 @@ where
   {
     let lhsCount = lhs.count
     lhs += rhs
-    return ((), { v in
-      let drhs = Other.ElementTangentCollection.DifferentiableView(
-        .init(v.dropFirst(lhsCount))) as! Other.TangentVector
+    return ((), { v -> Other.TangentVector in
+      let drhs = Other.TangentVector(.init(v.dropFirst(lhsCount)))
+      // the below line still isn't possible!!!
+//      let drhs = Other.ElementTangentCollection.DifferentiableView(.init(v.dropFirst(lhsCount)))
       let rhsCount = drhs.count
       v.removeLast(rhsCount)
       return drhs
@@ -534,6 +537,7 @@ where
 extension DifferentiableCollection
 where
   Self: RangeReplaceableCollection,
+  TangentVector: RangeReplaceableCollection,
   ElementTangentCollection: RangeReplaceableCollection,
   ElementTangentCollection.SubSequence == Slice<ElementTangentCollection>
 {
@@ -566,8 +570,9 @@ where
     (
       value: Self(repeating: repeatedValue, count: count),
       differential: { v in
-        ElementTangentCollection.DifferentiableView(repeating: v, count: count)
-          as! TangentVector
+        TangentVector(repeating: v, count: count)
+        // still can't do this!!!
+//        ElementTangentCollection.TangentVector(repeating: v, count: count)
       }
     )
   }
@@ -637,9 +642,7 @@ where
       for i in tans.indices {
         output.append(pullbacks[i](tans[i]))
       }
-      return TangentVector(output)
-//      return ElementTangentCollection.DifferentiableView(output)
-//        as! TangentVector
+      return ElementTangentCollection.DifferentiableView(output)
     }
     return (value: values, pullback: pullback)
   }
