@@ -437,7 +437,7 @@ where
     let appendedElementIndex = count
     append(element)
     return ((), { v in
-      // can't be just use popLast() to remove the restriction that Index == Int?
+      // can't we just use popLast() to remove the restriction that Index == Int?
       defer { v.removeLast() }
       return v[appendedElementIndex]
     })
