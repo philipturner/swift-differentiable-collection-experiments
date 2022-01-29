@@ -31,7 +31,7 @@ where
   where
     ElementTangentCollection.Element == Element.TangentVector,
     ElementTangentCollection.Element == TangentVector.Element,
-    ElementTangentCollection.Index == Index
+    ElementTangentCollection.Index == Index // is it possible to remove this restriction?
   
   static var zero: Self { get } // should this be renamed to `empty`?
   
@@ -81,6 +81,8 @@ extension DifferentiableCollectionView: DifferentiableCollection {
         yield base[position]
       } else {
         yield Element.zero // why is this even allowed (and checked in tests)? If it is, shouldn't it check for position < base.startIndex too?
+        //
+        // Maybe it's to allow for an optimized .zero type like Tensor.zero?
       }
     }
     set(newValue) {
@@ -279,15 +281,10 @@ where Base: BidirectionalCollection {
 
 // MARK: - Extensions to DifferentiableCollection
 
-
 //===----------------------------------------------------------------------===//
 // Derivatives
 //===----------------------------------------------------------------------===//
-extension DifferentiableCollection
-where
-  ElementTangentCollection: RangeReplaceableCollection
-  // not technically required by Swift, but we should add `Self: RangeReplaceableCollection` because `ElementTangentCollection` is supposed to be the same generic type just with a different Element
-{
+extension DifferentiableRangeReplaceableCollection {
   /// Must be overridden - I don't know how to best document this
   @_disfavoredOverload
   public subscript(position: Index) -> Element {
@@ -306,7 +303,7 @@ where
   }
   
   @usableFromInline
-  @derivative(of: subscript)
+  @derivative(of: subscript(_:).get)
   func _vjpSubscript(index: Index) -> (
     value: Element, pullback: (Element.TangentVector) -> TangentVector
   ) {
@@ -323,7 +320,7 @@ where
   }
   
   @usableFromInline
-  @derivative(of: subscript)
+  @derivative(of: subscript(_:).get)
   func _jvpSubscript(index: Index) -> (
     value: Element, differential: (TangentVector) -> Element.TangentVector
   ) {
@@ -818,6 +815,11 @@ where Element: Differentiable & AdditiveArithmetic {
   
 }
 
+extension ContiguousArray:
+  DifferentiableRangeReplaceableCollection,
+  DifferentiableBidirectionalCollection
+where Element: Differentiable & AdditiveArithmetic {}
+
 // ArraySlice conformance
 
 extension ArraySlice: DifferentiableCollection
@@ -830,22 +832,25 @@ where Element: Differentiable & AdditiveArithmetic {
     ArraySlice<Element.TangentVector>
   
   public typealias TangentVector =
-    ElementTangentCollection.DifferentiableView
+//    ElementTangentCollection.DifferentiableView
     // this doesn't work:
-    //DifferentiableCollectionView<ElementTangentCollection>
+    DifferentiableCollectionView<ElementTangentCollection>
 }
 
 extension ArraySlice: Differentiable
-where Element: Differentiable & AdditiveArithmetic {
-  
-}
+where Element: Differentiable & AdditiveArithmetic {}
+
+extension ArraySlice:
+  DifferentiableRangeReplaceableCollection,
+  DifferentiableBidirectionalCollection
+where Element: Differentiable & AdditiveArithmetic {}
 
 // cannot conform Dictionary to DifferentiableCollection
 // because Element (a tuple) cannot conform to a protocol
 
+// Can't conform Dictionary.Keys because they aren't a `MutableCollection`
+
 // Dictionary.Values conformance
-// Can't conform Dictionary.Keys because they aren't a `MutableCollection` - a
-// requirement needed for the `move` function.
 
 extension Dictionary.Values: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic, // it says conforming this to & AdditiveArithmetic is redundant, but I know it's needed. Any explanation for this faulty diagnostic?
@@ -853,17 +858,16 @@ Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning d
   public static var zero: Dictionary.Values {
     Dictionary<Key, Value>().values
   }
-  
+
   public typealias ElementTangentCollection =
     Dictionary<Key, Value.TangentVector>.Values
-  
+
   public typealias TangentVector =
-//    DifferentiableCollectionView<ElementTangentCollection>
-  ElementTangentCollection.DifferentiableView
+    DifferentiableCollectionView<ElementTangentCollection>
 }
 
 extension Dictionary.Values: Differentiable
 where Element: Differentiable & AdditiveArithmetic, // it says conforming this to & AdditiveArithmetic is redundant, but I know it's needed. Any explanation for this faulty diagnostic?
  Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure */ {
-  
+
 }
