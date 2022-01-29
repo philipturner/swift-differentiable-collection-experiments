@@ -8,8 +8,6 @@
 // By using Xcode 13.2.1 release toolchain + my Differentiation package, I can
 // work around errors caused by RequirementMachine.
 import Differentiation
-// it's technically possible to do this by just importing _Differentiation, but
-// I want to make it explicit that you have to import my package
 
 // MARK: - Declare DifferentiableCollection
 
