@@ -11,6 +11,14 @@ import Differentiation
 
 // MARK: - Declare DifferentiableCollection
 
+// NOTE: - instead of making @_disfavoredOverload operators, make sub-protocols
+// of DifferentiableRangeReplaceableCollection - use the operators inherited
+// there.
+
+// Must be a `MutableCollection` to that each element can be modified in the
+// `move` operator. Although in theory, one might be able to have a workaround
+// where you construct a new copy and reassign `self`, that would go against the
+// philosophy of `MutableCollection` and probably have O(n^2) performance.
 public protocol DifferentiableCollection: MutableCollection & Differentiable
 where
   Element: Differentiable & AdditiveArithmetic,
@@ -24,7 +32,7 @@ where
   
   associatedtype DifferentiableView: DifferentiableCollectionViewProtocol
   
-  static var zero: Self { get }
+  static var zero: Self { get } // should this be renamed to `empty`?
   
   func elementsEqual(_ other: Self) -> Bool
 }
@@ -782,6 +790,8 @@ where
   }
 }
 
+// ContiguousArray conformance
+
 extension ContiguousArray: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
   public static var zero: ContiguousArray<Element> {
@@ -799,6 +809,8 @@ extension ContiguousArray: Differentiable
 where Element: Differentiable & AdditiveArithmetic {
   
 }
+
+// ArraySlice conformance
 
 extension ArraySlice: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
@@ -823,25 +835,27 @@ where Element: Differentiable & AdditiveArithmetic {
 // cannot conform Dictionary to DifferentiableCollection
 // because Element (a tuple) cannot conform to a protocol
 
-// any other kinds of collections that aren't a RangeReplaceableCollection?
+// Dictionary.Values conformance
+// Can't conform Dictionary.Keys because they aren't a `MutableCollection` - a
+// requirement needed for the `move` function.
+
 extension Dictionary.Values: DifferentiableCollection
-where Element: Differentiable, // it says conforming this to & AdditiveArithmetic is redundant. I should add it, but I'm going to ask why that diagnostic happens in the first place.
-  // this produces a warning diagnostic, but removing it caused
-  // a compilation failure
-Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it caused a compilation failure */ {
+where Element: Differentiable & AdditiveArithmetic, // it says conforming this to & AdditiveArithmetic is redundant, but I know it's needed. Any explanation for this faulty diagnostic?
+Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure */ {
   public static var zero: Dictionary.Values {
-    Dictionary<Key, Element>().values
+    Dictionary<Key, Value>().values
   }
   
   public typealias ElementTangentCollection =
-    Dictionary<Key, Element.TangentVector>.Values
+    Dictionary<Key, Value.TangentVector>.Values
   
   public typealias TangentVector =
-    DifferentiableCollectionView<ElementTangentCollection>
+//    DifferentiableCollectionView<ElementTangentCollection>
+  ElementTangentCollection.DifferentiableView
 }
 
 extension Dictionary.Values: Differentiable
-where Element: Differentiable, // it says conforming this to & AdditiveArithmetic is redundant. I should add it, but I'm going to ask why that diagnostic happens in the first place.
-  Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it caused a compilation failure */ {
+where Element: Differentiable & AdditiveArithmetic, // it says conforming this to & AdditiveArithmetic is redundant, but I know it's needed. Any explanation for this faulty diagnostic?
+ Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure */ {
   
 }
