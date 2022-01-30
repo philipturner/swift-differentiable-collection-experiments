@@ -5,8 +5,8 @@
 //  Created by Philip Turner on 1/27/22.
 //
 
-// By using Xcode 13.2.1 release toolchain + my Differentiation package, I can
-// work around errors caused by RequirementMachine.
+// By using Xcode 13.2.1 release toolchain (Swift 5.5.2) + my Differentiation
+// package, I can work around errors caused by RequirementMachine.
 import Differentiation
 
 // Must be a `MutableCollection` to that each element can be modified in the
@@ -30,19 +30,20 @@ where
   func elementsEqual(_ other: Self) -> Bool
 }
 
-/// Makes `Array` differentiable as the product manifold of `Element`
-/// multiplied with itself `count` times.
+/// Makes `DifferentiableCollection` differentiable as the product manifold of
+/// `Element` multiplied with itself `count` times.
 extension DifferentiableCollection {
-  // In an ideal world, `TangentVector` would be `[Element.TangentVector]`.
-  // Unfortunately, we cannot conform `Array` to `AdditiveArithmetic` for
-  // `TangentVector` because `Array` already has a static `+` method with
-  // different semantics from `AdditiveArithmetic.+`. So we use
-  // `Array.DifferentiableView` for all these associated types.
+  // In an ideal world, `TangentVector` would be `ElementTangentCollection`.
+  // Unfortunately, we cannot conform `Collection` to `AdditiveArithmetic` for
+  // `TangentVector` because `RangeReplaceableCollection` already has a static
+  // `+` method with different semantics from `AdditiveArithmetic.+`. So we use
+  // `DifferentiableCollectionView` for all these associated types.
   public typealias DifferentiableView = DifferentiableCollectionView<Self>
-  // TODO: - the above documentation isn't 100% appropriate because
-  // declaration of `TangentVector` has been moved outside of this block of code
+  // NOTE: - the above documentation isn't 100% appropriate because the
+  // declaration of `TangentVector` has been moved outside of this block of
+  // code. What should I do about it?
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public mutating func move(by offset: TangentVector) {
     var view = DifferentiableView(self)
     view.move(by: offset)
@@ -61,7 +62,7 @@ public protocol DifferentiableCollectionViewProtocol: DifferentiableCollection {
 public struct DifferentiableCollectionView<Base: DifferentiableCollection>: DifferentiableCollectionViewProtocol {
   public typealias ElementTangentCollection = Base.ElementTangentCollection
   
-  @usableFromInline // IDK if this is a good idea
+  @usableFromInline // IDK if @usableFromInline is a good idea
   var _base: Base
 }
 
@@ -69,7 +70,7 @@ extension DifferentiableCollectionView: DifferentiableCollection {
   public typealias Element = Base.Element
   public typealias Index = Base.Index
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public subscript(position: Index) -> Element {
     get {
       if position < endIndex {
@@ -88,23 +89,23 @@ extension DifferentiableCollectionView: DifferentiableCollection {
     }
   }
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public func index(after i: Index) -> Index {
     base.index(after: i)
   }
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public var startIndex: Index { base.startIndex }
 
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public var endIndex: Index { base.endIndex }
 }
 
 extension DifferentiableCollectionView: Differentiable {
   /// The viewed array.
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public var base: Base {
-    get { _base } // why can't we use `_read` here?
+    get { _base } // why can't we use `_read` here? Will it crash the derivatives below?
     _modify { yield &_base }
   }
   
@@ -127,7 +128,7 @@ extension DifferentiableCollectionView: Differentiable {
   // TODO(SR-14113): add derivative of base._modify once that's supported
   
   /// Creates a differentiable view of the given array.
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public init(_ base: Base) {
     _base = base
   }
@@ -150,7 +151,7 @@ extension DifferentiableCollectionView: Differentiable {
   
   public typealias TangentVector = Base.TangentVector
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public mutating func move(by offset: TangentVector) {
     if offset.isEmpty {
       return
@@ -168,7 +169,7 @@ extension DifferentiableCollectionView: Differentiable {
 
 extension DifferentiableCollectionView: Equatable
 where Element: Equatable {
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.elementsEqual(rhs)
   }
@@ -176,7 +177,7 @@ where Element: Equatable {
 
 extension DifferentiableCollectionView: ExpressibleByArrayLiteral
 where Base: RangeReplaceableCollection {
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public init(arrayLiteral elements: Element...) {
     self.init(Base(elements))
   }
@@ -185,7 +186,7 @@ where Base: RangeReplaceableCollection {
 // why is there only conformance for CustomStringConvertible and not CustomDebugStringConvertible or CustomReflectable?
 extension DifferentiableCollectionView: CustomStringConvertible
 where Base: CustomStringConvertible {
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public var description: String { base.description }
 }
 
@@ -195,10 +196,10 @@ where Base: CustomStringConvertible {
 /// of all counts.
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public static var zero: Self { .init(Base.zero) }
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public static func + (lhs: Self, rhs: Self) -> Self {
     if lhs.count == 0 {
       return rhs
@@ -216,7 +217,7 @@ where Element: AdditiveArithmetic {
     return sum
   }
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public static func - (lhs: Self, rhs: Self) -> Self {
     if lhs.count == 0 {
       return rhs
@@ -245,17 +246,17 @@ where
 
 extension DifferentiableCollectionView: RangeReplaceableCollection
 where Base: RangeReplaceableCollection {
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good ideaa
   public init() {
     self.init(Base.zero)
   }
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public subscript(bounds: Range<Index>) -> Base.SubSequence {
     get { base[bounds] }
   }
   
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public mutating func replaceSubrange<C>(
     _ subrange: Range<Base.Index>,
     with newElements: C
@@ -274,7 +275,7 @@ where
 
 extension DifferentiableCollectionView: BidirectionalCollection
 where Base: BidirectionalCollection {
-  @inlinable // IDK if this is a good idea
+  @inlinable // IDK if @inlinable is a good idea
   public func index(before i: Index) -> Index {
     base.index(before: i)
   }
@@ -696,6 +697,10 @@ where Self: DifferentiableBidirectionalCollection {
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Protocol conformances
+//===----------------------------------------------------------------------===//
+
 // Array conformance
 
 #if false // once this compiles on the dev toolchain, remove the guard. Currently, it conflicts with the Array conformance in my Differentiation package. This guard is retained so that reviewers can reproduce and compile this draft.
@@ -704,7 +709,7 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 extension Array: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
-  @inlinable
+  @inlinable // IDK if @inlinable is a good idea
   public static var zero: Array<Element> { .init() }
   
   public typealias ElementTangentCollection =
@@ -727,7 +732,7 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 extension ContiguousArray: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
-  @inlinable
+  @inlinable // IDK if @inlinable is a good idea
   public static var zero: ContiguousArray<Element> { .init() }
   
   public typealias ElementTangentCollection =
@@ -749,7 +754,7 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 extension ArraySlice: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic {
-  @inlinable
+  @inlinable // IDK if @inlinable is a good idea
   public static var zero: ArraySlice<Element> { .init() }
   
   public typealias ElementTangentCollection = ArraySlice<Element.TangentVector>
@@ -772,7 +777,7 @@ where Element: Differentiable & AdditiveArithmetic,
 extension Dictionary.Values: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic,
 Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure on 5.5.2 */ {
-  @inlinable
+  @inlinable // IDK if @inlinable is a good idea
   public static var zero: Dictionary.Values {
     Dictionary<Key, Value>().values
   }
