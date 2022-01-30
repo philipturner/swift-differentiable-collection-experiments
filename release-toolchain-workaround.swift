@@ -105,11 +105,14 @@ extension DifferentiableCollectionView: Differentiable {
   /// The viewed array.
   @inlinable // IDK if @inlinable is a good idea
   public var base: Base {
-    get { _base } // why can't we use `_read` here? Will it crash the derivatives below?
+    get { _base }
     _modify { yield &_base }
   }
   
-  @inlinable // I changed a lot of instances of @usableFromInline to @inlinable. I'd rather not make a side note on every single example. Is there any reason not to do this?
+  @inlinable // I changed a lot of instances of @usableFromInline to @inlinable.
+  // I'd rather not make a side note on every single example. Any instances of
+  // this are NOT marked with "IDK if @inlinable is a good idea". Is there any
+  // reason not to do this?
   @derivative(of: base.get)
   func _vjpBase() -> (
     value: Base, pullback: (TangentVector) -> TangentVector
@@ -183,7 +186,8 @@ where Base: RangeReplaceableCollection {
   }
 }
 
-// why is there only conformance for CustomStringConvertible and not CustomDebugStringConvertible or CustomReflectable?
+// why is there only conformance for CustomStringConvertible and not
+// CustomDebugStringConvertible or CustomReflectable?
 extension DifferentiableCollectionView: CustomStringConvertible
 where Base: CustomStringConvertible {
   @inlinable // IDK if @inlinable is a good idea
@@ -286,7 +290,9 @@ where Base: BidirectionalCollection {
 //===----------------------------------------------------------------------===//
 
 extension DifferentiableRangeReplaceableCollection {
-  /// Must be overridden - I don't know how to best document this
+  // I don't know how to best document this. Same goes for all other
+  // @_disfavoredOverload operators.
+  /// Must be overridden.
   @_disfavoredOverload
   public subscript(position: Index) -> Element {
     get {
@@ -348,12 +354,11 @@ extension DifferentiableRangeReplaceableCollection {
   
   // Alternatively, it would be possible to overload the alternative generic
   // signature by calling the existing function with swapped parameters. But,
-  // that might make it complicated to conform to the protocol or open
-  // opportunities to misuse it (i.e. just overload one of the two or make them
-  // have different behavior). Maybe it's okay since that is technically
-  // already possible with RangeReplaceableCollection.
+  // that might open opportunities to misuse the protocol (i.e. just overload
+  // one of the two or make them have different behavior). Maybe it's okay since
+  // that is technically already possible with RangeReplaceableCollection.
   
-  /// Must be overridden - I don't know how to best document this
+  /// Must be overridden.
   @_disfavoredOverload
   public static func + <Other: DifferentiableRangeReplaceableCollection>(
     lhs: Self,
@@ -419,11 +424,13 @@ extension DifferentiableRangeReplaceableCollection {
   }
 }
 
-// could be the other way around; extending Diff...Bidirectional... when Self
-// is Diff...RangeReplaceable. The alternative is a clunky
-// Diff...RangeReplaceable...Bidirectional... protocol. What should I do?
+// could be the other way around; extending Diff...Bidirectional... where Self
+// is Diff...RangeReplaceable. I haven't investigated whether this does anything
+// peculiar in DocC documentation. The alternative is a clunky combined
+// Diff...RangeReplaceable...Bidirectional... protocol.
 extension DifferentiableRangeReplaceableCollection
 where Self: DifferentiableBidirectionalCollection {
+  /// Must be overridden.
   @_disfavoredOverload
   public mutating func append(_ newElement: Element) {
     fatalError("""
@@ -441,7 +448,7 @@ where Self: DifferentiableBidirectionalCollection {
     append(element)
     return ((), { v in
       guard let lastElement = v.popLast() else {
-        fatalError("This should never happen.") // should I put something else here?
+        fatalError("This should never happen.") // should something else go here?
       }
       return lastElement
     })
@@ -459,8 +466,11 @@ where Self: DifferentiableBidirectionalCollection {
   
   // TODO: check that this actually translates into a change in
   // behavior of `append(contentsOf:)`. Otherwise, there might need to be
-  // a LOT more overloading of behavior of sequences' methods
+  // a LOT more overloading of behavior of sequences' methods. I am concerned
+  // because this makes derivatives for `+=`, and not for `append(contentsOf:)`.
+  // The two methods are functionally the same.
   
+  /// Must be overridden.
   @_disfavoredOverload
   public static func += <Other: DifferentiableRangeReplaceableCollection>(
     _ lhs: inout Self,
@@ -509,6 +519,7 @@ where Self: DifferentiableBidirectionalCollection {
 }
 
 extension DifferentiableRangeReplaceableCollection {
+  /// Must be overridden.
   @_disfavoredOverload
   public init(repeating: Element, count: Int) {
     fatalError("""
@@ -583,7 +594,7 @@ extension DifferentiableRangeReplaceableCollection {
       // Right now, it uses the old Array.DifferentiableView because it
       // relies on my Differentiation module. In the final form, we will remove
       // `.base` from `tans.base`.
-      // TODO: conform Array to Differentiable and have it override the existing
+      // TODO: conform Array to Differentiable to replace the existing
       // implementation in the stdlib - once this draft compiles on dev builds
       .init(zip(tans.base, pullbacks).map { tan, pb in pb(tan) })
     }
@@ -703,7 +714,10 @@ where Self: DifferentiableBidirectionalCollection {
 
 // Array conformance
 
-#if false // once this compiles on the dev toolchain, remove the guard. Currently, it conflicts with the Array conformance in my Differentiation package. This guard is retained so that reviewers can reproduce and compile this draft.
+#if false // once this compiles on the dev toolchain, remove the guard.
+// Currently, it conflicts with the Array conformance in my Differentiation
+// package. This guard is retained so that anyone can reproduce and compile
+// this draft right now.
 extension Array: Differentiable
 where Element: Differentiable & AdditiveArithmetic {}
 
@@ -772,11 +786,13 @@ where Element: Differentiable & AdditiveArithmetic {}
 
 extension Dictionary.Values: Differentiable
 where Element: Differentiable & AdditiveArithmetic,
- Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure on 5.5.2 */ {}
+ Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning
+diagnostic, but removing it causes a compilation failure on 5.5.2 */ {}
 
 extension Dictionary.Values: DifferentiableCollection
 where Element: Differentiable & AdditiveArithmetic,
-Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning diagnostic, but removing it causes a compilation failure on 5.5.2 */ {
+Dictionary<Key, Value.TangentVector>.Index == Index /* this produces a warning
+diagnostic, but removing it causes a compilation failure on 5.5.2 */ {
   @inlinable // IDK if @inlinable is a good idea
   public static var zero: Dictionary.Values {
     Dictionary<Key, Value>().values
