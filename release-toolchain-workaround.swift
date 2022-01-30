@@ -10,9 +10,7 @@
 import Differentiation
 
 // Must be a `MutableCollection` to that each element can be modified in the
-// `move` operator. Although in theory, one might be able to have a workaround
-// where you construct a new copy and reassign `self`, that would go against the
-// philosophy of `MutableCollection` and probably have O(n^2) performance.
+// `move` operator.
 public protocol DifferentiableCollection: MutableCollection, Differentiable
 where
   Element: Differentiable & AdditiveArithmetic,
@@ -25,9 +23,9 @@ where
   where
     ElementTangentCollection.Element == Element.TangentVector,
     ElementTangentCollection.Element == TangentVector.Element,
-    ElementTangentCollection.Index == Index // is it possible to remove this restriction?
+    ElementTangentCollection.Index == Index
   
-  static var zero: Self { get } // should this be renamed to `empty`?
+  static var zero: Self { get }
   
   func elementsEqual(_ other: Self) -> Bool
 }
@@ -102,8 +100,6 @@ extension DifferentiableCollectionView: DifferentiableCollection {
   public var endIndex: Index { base.endIndex }
 }
 
-// MARK: - Declare conformances
-
 extension DifferentiableCollectionView: Differentiable {
   /// The viewed array.
   @inlinable // IDK if this is a good idea
@@ -129,7 +125,6 @@ extension DifferentiableCollectionView: Differentiable {
   }
   
   // TODO(SR-14113): add derivative of base._modify once that's supported
-  // or make a derivative or base.set - is that a valid solution?
   
   /// Creates a differentiable view of the given array.
   @inlinable // IDK if this is a good idea
@@ -240,7 +235,7 @@ where Element: AdditiveArithmetic {
   }
 }
 
-// MARK: - DifferentiableRangeReplaceableCollection
+// DifferentiableRangeReplaceableCollection
 
 public protocol DifferentiableRangeReplaceableCollection:
   DifferentiableCollection, RangeReplaceableCollection
@@ -269,7 +264,7 @@ where Base: RangeReplaceableCollection {
   }
 }
 
-// MARK: - DifferentiableBidirectionalCollection
+// DifferentiableBidirectionalCollection
 
 public protocol DifferentiableBidirectionalCollection:
   DifferentiableCollection, BidirectionalCollection
@@ -338,7 +333,6 @@ extension DifferentiableRangeReplaceableCollection {
   }
   
   // TODO(SR-14113): add derivative of subscript._modify once that's supported
-  // or make a derivative or subscript.set - is that a valid solution?
 }
 
 extension DifferentiableRangeReplaceableCollection {
@@ -471,10 +465,7 @@ where Self: DifferentiableBidirectionalCollection {
     _ lhs: inout Self,
     rhs: Other
   )
-  where
-    Element == Other.Element,
-    Other: DifferentiableBidirectionalCollection
-  {
+  where Element == Other.Element, Other: DifferentiableBidirectionalCollection {
     fatalError("""
       This should never happen. \
       \(Self.self) must override the default implementation of `append(_:)` \
@@ -588,11 +579,11 @@ extension DifferentiableRangeReplaceableCollection {
       pullbacks.append(pb)
     }
     func pullback(_ tans: Array<Result>.TangentVector) -> TangentVector {
-      // TODO: Right now, it uses the old Array.DifferentiableView because it
+      // Right now, it uses the old Array.DifferentiableView because it
       // relies on my Differentiation module. In the final form, we will remove
       // `.base` from `tans.base`.
       // TODO: conform Array to Differentiable and have it override the existing
-      // implementation in the stdlib
+      // implementation in the stdlib - once this draft compiles on dev builds
       .init(zip(tans.base, pullbacks).map { tan, pb in pb(tan) })
     }
     return (value: values, pullback: pullback)
@@ -704,6 +695,30 @@ where Self: DifferentiableBidirectionalCollection {
     })
   }
 }
+
+// Array conformance
+
+#if false // once this compiles on the dev toolchain, remove the guard. Currently, it conflicts with the Array conformance in my Differentiation package. This guard is retained so that reviewers can reproduce and compile this draft.
+extension Array: Differentiable
+where Element: Differentiable & AdditiveArithmetic {}
+
+extension Array: DifferentiableCollection
+where Element: Differentiable & AdditiveArithmetic {
+  @inlinable
+  public static var zero: Array<Element> { .init() }
+  
+  public typealias ElementTangentCollection =
+    Array<Element.TangentVector>
+  
+  public typealias TangentVector =
+    DifferentiableCollectionView<ElementTangentCollection>
+}
+
+extension Array:
+  DifferentiableRangeReplaceableCollection,
+  DifferentiableBidirectionalCollection
+where Element: Differentiable & AdditiveArithmetic {}
+#endif
 
 // ContiguousArray conformance
 
