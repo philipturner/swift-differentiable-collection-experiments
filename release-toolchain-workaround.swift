@@ -128,7 +128,7 @@ extension DifferentiableCollectionView: Differentiable {
     return (base, { $0 })
   }
   
-  // TODO(SR-14113): add derivative of base._modify once that's supported
+  // TODO(SR-14113): add derivative of base._modify once it's possible
   
   /// Creates a differentiable view of the given array.
   @inlinable // IDK if @inlinable is a good idea
@@ -194,10 +194,10 @@ where Base: CustomStringConvertible {
   public var description: String { base.description }
 }
 
-/// Makes `Array.DifferentiableView` additive as the product space.
+/// Makes `DifferentiableCollectionView` additive as the product space.
 ///
-/// Note that `Array.DifferentiableView([])` is the zero in the product spaces
-/// of all counts.
+/// Note that `DifferentiableCollectionView.zero` is the zero in the product
+/// spaces of all counts.
 extension DifferentiableCollectionView: AdditiveArithmetic
 where Element: AdditiveArithmetic {
   @inlinable // IDK if @inlinable is a good idea
@@ -322,8 +322,7 @@ extension DifferentiableRangeReplaceableCollection {
         count: count
       )
       dSelf[index] = v
-      return ElementTangentCollection.DifferentiableView(dSelf)
-        as! Self.TangentVector
+      return TangentVector(dSelf)
     }
     return (self[index], pullback)
   }
@@ -339,7 +338,7 @@ extension DifferentiableRangeReplaceableCollection {
     return (self[index], differential)
   }
   
-  // TODO(SR-14113): add derivative of subscript._modify once that's supported
+  // TODO(SR-14113): add derivative of base._modify once it's possible
 }
 
 extension DifferentiableRangeReplaceableCollection {
