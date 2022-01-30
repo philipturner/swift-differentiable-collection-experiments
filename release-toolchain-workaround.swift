@@ -14,7 +14,7 @@ import Swift
 
 // By using Xcode 13.2.1 release toolchain (Swift 5.5.2) + my Differentiation
 // package, I can work around errors caused by RequirementMachine.
-import Differentiation
+import Differentiation // remove import once this builds on dev toolchain
 
 // Must be a `MutableCollection` to that each element can be modified in the
 // `move` operator.
