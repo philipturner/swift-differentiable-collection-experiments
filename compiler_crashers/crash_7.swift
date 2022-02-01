@@ -1,5 +1,6 @@
 // This is not related to differentiable collections, but I'm putting it here for convenience.
 // It happened even when I passed in -Xfrontend -requirement-machine-protocol-signatures=on -Xfrontend -requirement-machine-inferred-signatures=on -Xfrontend -requirement-machine-abstract-signatures=on
+// But, the stack trace was different the second time:
 
 import Darwin
 import Foundation
