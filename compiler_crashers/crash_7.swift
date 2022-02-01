@@ -2,18 +2,16 @@
 // It happened even when I passed in -Xfrontend -requirement-machine-protocol-signatures=on -Xfrontend -requirement-machine-inferred-signatures=on -Xfrontend -requirement-machine-abstract-signatures=on
 // But, the stack trace was different the second time:
 
-import Darwin
-import Foundation
-import Differentiation
+import _Differentiation
+
+struct Q { }
 
 @derivative(of: remainder(_:_:))
-func _jvpRemainder<T: FloatingPoint & Differentiable>(_ x: Float, _ y: Float) -> (
-  value: Float, pullback: (Float) -> (Float, Float)
-) where T == T.TangentVector {
-  return (remainder(x, y), { v in (v, -v * ((x / y).rounded(.toNearestOrEven))) })
+func _vjpRemainder<T: FloatingPoint>(_ x: Q, _ y: Q) -> (
+  value: Q, pullback: (Q) -> (Q, Q)
+) {
+  fatalError()
 }
-
-print(gradient(at: Float(3), Float(0.9999), of: fmod))
 
 /*
 /Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:18:20: error: generic parameter 'T' is not used in function signature
@@ -52,4 +50,45 @@ Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or
 21 swift-frontend           0x000000010479fd08 swift::performFrontend(llvm::ArrayRef<char const*>, char const*, void*, swift::FrontendObserver*) + 2936
 22 swift-frontend           0x000000010473e13c swift::mainEntry(int, char const**) + 500
 23 dyld                     0x00000001111510f4 start + 520
+*/
+
+// Second time (with RequirementMachine)
+
+/*
+/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:18:20: error: generic parameter 'T' is not used in function signature
+func _vjpRemainder<T: FloatingPoint>(_ x: Q, _ y: Q) -> (
+                   ^
+Assertion failed: (isa<X>(Val) && "cast<Ty>() argument of incompatible type!"), function cast, file Casting.h, line 269.
+Please submit a bug report (https://swift.org/contributing/#reporting-bugs) and include the project and the crash backtrace.
+Stack dump:
+0.	Program arguments: /Library/Developer/Toolchains/swift-DEVELOPMENT-SNAPSHOT-2022-01-09-a.xctoolchain/usr/bin/swift-frontend -frontend -c -primary-file /Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift -emit-dependencies-path /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Objects-normal/arm64/main.d -emit-reference-dependencies-path /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Objects-normal/arm64/main.swiftdeps -serialize-diagnostics-path /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Objects-normal/arm64/main.dia -target arm64-apple-macos12.1 -Xllvm -aarch64-use-tbi -enable-objc-interop -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.1.sdk -I /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Products/Debug -F /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Products/Debug/PackageFrameworks -F /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Products/Debug/PackageFrameworks -F /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Products/Debug -enable-testing -g -module-cache-path /Users/philipturner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -swift-version 5 -enforce-exclusivity=checked -Onone -D DEBUG -new-driver-path /Library/Developer/Toolchains/swift-DEVELOPMENT-SNAPSHOT-2022-01-09-a.xctoolchain/usr/bin/swift-driver -requirement-machine-protocol-signatures=on -requirement-machine-inferred-signatures=on -requirement-machine-abstract-signatures=on -serialize-debugging-options -resource-dir /Library/Developer/Toolchains/swift-DEVELOPMENT-SNAPSHOT-2022-01-09-a.xctoolchain/usr/lib/swift -enable-anonymous-context-mangled-names -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Experimentation4-generated-files.hmap -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Experimentation4-own-target-headers.hmap -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Experimentation4-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/all-product-headers.yaml -Xcc -iquote -Xcc /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Experimentation4-project-headers.hmap -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Products/Debug/include -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/DerivedSources-normal/arm64 -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/DerivedSources/arm64 -Xcc -I/Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/DerivedSources -Xcc -DDEBUG=1 -Xcc -working-directory/Users/philipturner/Desktop/Experimentation4 -module-name Experimentation4 -target-sdk-version 12.1 -o /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Build/Intermediates.noindex/Experimentation4.build/Debug/Experimentation4.build/Objects-normal/arm64/main.o -index-store-path /Users/philipturner/Library/Developer/Xcode/DerivedData/Experimentation4-fiujtigzqtbezegvwlbrrufbvmwx/Index/DataStore -index-system-modules
+1.	Apple Swift version 5.6-dev (LLVM 7b20e61dd04138a, Swift 9438cf6b2e83c5f)
+2.	Compiling with the current language version
+3.	While evaluating request TypeCheckSourceFileRequest(source_file "/Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift")
+4.	While type-checking '_vjpRemainder(_:_:)' (at /Users/philipturner/Desktop/Experimentation4/Experimentation4/main.swift:18:1)
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  swift-frontend           0x00000001073865c0 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 56
+1  swift-frontend           0x0000000107385820 llvm::sys::RunSignalHandlers() + 128
+2  swift-frontend           0x0000000107386c24 SignalHandler(int) + 304
+3  libsystem_platform.dylib 0x00000001bb5304e4 _sigtramp + 56
+4  libsystem_pthread.dylib  0x00000001bb518eb0 pthread_kill + 288
+5  libsystem_c.dylib        0x00000001bb456314 abort + 164
+6  libsystem_c.dylib        0x00000001bb45572c err + 0
+7  swift-frontend           0x00000001076be1dc swift::ASTVisitor<(anonymous namespace)::AttributeChecker, void, void, void, void, void, void>::visit(swift::DeclAttribute*) (.cold.276) + 0
+8  swift-frontend           0x0000000103bbe4d8 swift::ASTVisitor<(anonymous namespace)::AttributeChecker, void, void, void, void, void, void>::visit(swift::DeclAttribute*) + 36096
+9  swift-frontend           0x0000000103bb5184 swift::TypeChecker::checkDeclAttributes(swift::Decl*) + 200
+10 swift-frontend           0x0000000103c30a30 (anonymous namespace)::DeclChecker::visitFuncDecl(swift::FuncDecl*) + 148
+11 swift-frontend           0x0000000103c28d6c (anonymous namespace)::DeclChecker::visit(swift::Decl*) + 224
+12 swift-frontend           0x0000000103c28c78 swift::TypeChecker::typeCheckDecl(swift::Decl*, bool) + 116
+13 swift-frontend           0x0000000103cd1698 swift::TypeCheckSourceFileRequest::evaluate(swift::Evaluator&, swift::SourceFile*) const + 176
+14 swift-frontend           0x0000000103cd3454 llvm::Expected<swift::TypeCheckSourceFileRequest::OutputType> swift::Evaluator::getResultUncached<swift::TypeCheckSourceFileRequest>(swift::TypeCheckSourceFileRequest const&) + 400
+15 swift-frontend           0x0000000103cd31f4 llvm::Expected<swift::TypeCheckSourceFileRequest::OutputType> swift::Evaluator::getResultCached<swift::TypeCheckSourceFileRequest, (void*)0>(swift::TypeCheckSourceFileRequest const&) + 124
+16 swift-frontend           0x0000000103cd14dc swift::TypeCheckSourceFileRequest::OutputType swift::evaluateOrDefault<swift::TypeCheckSourceFileRequest>(swift::Evaluator&, swift::TypeCheckSourceFileRequest, swift::TypeCheckSourceFileRequest::OutputType) + 44
+17 swift-frontend           0x0000000103079f8c bool llvm::function_ref<bool (swift::SourceFile&)>::callback_fn<swift::CompilerInstance::performSema()::$_6>(long, swift::SourceFile&) + 16
+18 swift-frontend           0x0000000103076878 swift::CompilerInstance::forEachFileToTypeCheck(llvm::function_ref<bool (swift::SourceFile&)>) + 76
+19 swift-frontend           0x0000000103076800 swift::CompilerInstance::performSema() + 76
+20 swift-frontend           0x0000000103028fa8 withSemanticAnalysis(swift::CompilerInstance&, swift::FrontendObserver*, llvm::function_ref<bool (swift::CompilerInstance&)>) + 56
+21 swift-frontend           0x000000010301fd08 swift::performFrontend(llvm::ArrayRef<char const*>, char const*, void*, swift::FrontendObserver*) + 2936
+22 swift-frontend           0x0000000102fbe13c swift::mainEntry(int, char const**) + 500
+23 dyld                     0x000000010f9b50f4 start + 520
 */
