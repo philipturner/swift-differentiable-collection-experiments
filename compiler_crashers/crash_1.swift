@@ -1,4 +1,4 @@
-// This seems to be purely caused by RequirementMachine, not AutoDiff.
+// This seems to be **exposed** by RequirementMachine.
 //
 // This produces the same stack trace when I conform `DifferentiableCollection`
 // to `MutableCollection` and `Differentiable`, then substitute the following:
