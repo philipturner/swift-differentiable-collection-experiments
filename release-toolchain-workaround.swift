@@ -16,7 +16,7 @@ import Swift
 // package, I can work around errors **exposed** by RequirementMachine.
 import Differentiation // remove import once this builds on dev toolchain
 
-// Must be a `MutableCollection` to that each element can be modified in the
+// Must be a `MutableCollection` so that each element can be modified in the
 // `move` operator.
 public protocol DifferentiableCollection: MutableCollection, Differentiable
 where
